@@ -15,7 +15,6 @@ const config: KnipConfig = {
   ],
   project: ['src/**/*.{ts,tsx}', 'test/**/*.{ts,tsx}'],
   ignore: [
-    'src/app/routeTree.gen.ts',
     // shadcn on-deck primitives — kept for the next wave of UI work
     'src/components/ui/**',
   ],

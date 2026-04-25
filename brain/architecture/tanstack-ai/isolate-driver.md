@@ -13,3 +13,7 @@ The code-mode tool calls `driver.createContext({ bindings, timeout, memoryLimit 
 `probeIsolatedVm()` from the Node package checks compatibility before crashing — the driver auto-probes unless you pass `skipProbe: true` (don't).
 
 If we ever ship a fully client-side build, we'd swap to QuickJS. The `external_*` tools would also need to move client-side (or call out to the server).
+
+## Why we left QuickJS
+
+We started on `@tanstack/ai-isolate-quickjs` and hit `RuntimeError: memory access out of bounds` from `wasm://wasm/...` partway through realistic code-mode programs — QuickJS asyncify-stack corruption under our workload. Switching to the Node isolate fixed it instantly. If you ever need to revisit QuickJS (browser/edge build), expect to debug this again.

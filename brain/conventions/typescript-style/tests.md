@@ -1,6 +1,8 @@
 # Tests
 
-Vitest is wired (`pnpm test`); no tests in the repo yet. When we add them:
+Three suites are wired — see [[architecture/test-infrastructure]] for the projects (`node`/`dom`/e2e), auto-guards, cassette server, and DOM browser-mode conventions. For agent-level tests that bypass the LLM, see [[architecture/integration-testing]]. The style rules below apply to all of them.
+
+Style:
 
 - **AAA structure** — Arrange / Act / Assert. Minimal actions, minimal asserts.
 - **Test behavior, not implementation.** Refactors shouldn't break tests.

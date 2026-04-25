@@ -67,14 +67,11 @@ export function clearCart() {
   return { itemCount: 0, lineCount: 0 }
 }
 
-export function getCart() {
-  return Array.from(getCartForSession().values())
-}
-
 export interface DetailedCartLine {
   productId: string
   name: string
   brand: string
+  imageUrl: string
   size: string
   width: Width
   quantity: number
@@ -97,6 +94,7 @@ export function getCartDetailed(): DetailedCart {
       productId: line.productId,
       name: p?.name ?? 'Unknown',
       brand: p?.brand ?? 'Unknown',
+      imageUrl: p?.imageUrl ?? '',
       size: line.size,
       width: line.width,
       quantity: line.quantity,

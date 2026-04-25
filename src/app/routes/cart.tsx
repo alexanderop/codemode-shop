@@ -65,6 +65,14 @@ function CartPage() {
                 const isPending = pendingKey === lineKey
                 return (
                   <div key={lineKey} className="flex items-center gap-4 p-4">
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className="h-20 w-20 flex-shrink-0 rounded-md bg-surface-3 object-cover"
+                        loading="lazy"
+                      />
+                    ) : null}
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold leading-tight">{item.name}</div>
                       <div className="text-xs text-muted-foreground">

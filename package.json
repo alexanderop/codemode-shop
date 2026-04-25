@@ -19,7 +19,8 @@
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "knip": "knip"
+    "knip": "knip",
+    "prepare": "simple-git-hooks"
   },
   "dependencies": {
     "@comark/react": "^0.3.1",
@@ -62,13 +63,27 @@
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/browser-playwright": "^4.1.5",
     "knip": "^6.6.3",
+    "lint-staged": "^16.4.0",
     "oxfmt": "^0.46.0",
     "oxlint": "^1.61.0",
     "playwright": "^1.59.1",
+    "simple-git-hooks": "^2.13.1",
     "typescript": "^5.7.2",
     "vite": "^8.0.0",
     "vitest": "^4.1.5",
     "vitest-browser-react": "^2.2.0"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged && pnpm typecheck"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs}": [
+      "oxlint --fix",
+      "oxfmt"
+    ],
+    "*.{json,md,css,html}": [
+      "oxfmt"
+    ]
   },
   "engines": {
     "node": ">=24"

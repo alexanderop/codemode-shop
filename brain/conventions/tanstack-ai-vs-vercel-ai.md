@@ -15,3 +15,7 @@ Easy to confuse. `@tanstack/ai` looks superficially similar to `ai` / `@ai-sdk/*
 `chat()` has **no `onFinish`/`onEnd` option** — middleware is the only way to hook the lifecycle.
 
 `temperature`, `topP`, `maxTokens`, `metadata` are **top-level** on `chat({ ... })` — not nested in `options`. Provider-specific knobs go in `modelOptions`.
+
+## Model id must be a literal type
+
+`anthropicText(...)` expects `AnthropicChatModel` (a string-literal union), not bare `string`. A centralized `export const storefrontModel = process.env.X ?? 'claude-haiku-4-5'` will fail typecheck at the `anthropicText(storefrontModel)` call site. Cast at the source: `as AnthropicChatModel` (see `src/config/model.ts`). Don't sprinkle the cast at every call site.

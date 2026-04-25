@@ -14,6 +14,13 @@
 - [[architecture/cart-state]]
 - [[architecture/orders]]
 - [[architecture/checkout-flow]]
+- [[architecture/markdown-rendering]]
+- [[architecture/client-server-module-boundary]]
+
+## Testing
+
+- [[architecture/test-infrastructure]]
+- [[architecture/integration-testing]]
 
 ## TanStack AI library internals
 

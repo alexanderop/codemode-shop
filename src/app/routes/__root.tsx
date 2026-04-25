@@ -1,10 +1,12 @@
 import { HeadContent, Link, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import { useHotkey } from '@tanstack/react-hotkeys'
 import { Toaster } from '#/components/ui/sonner'
 import { Button } from '#/components/ui/button'
 import { CartHydrator } from '#/components/cart-hydrator'
-import { AssistantShortcut } from '#/components/assistant-shortcut'
+import { StorekeeperDrawer } from '#/features/storefront/components/storekeeper-drawer'
+import { assistantUi, useAssistantOpen } from '#/stores/assistant-ui'
 
 import appCss from '#/styles.css?url'
 
@@ -49,6 +51,11 @@ function NotFound() {
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const assistantOpen = useAssistantOpen()
+  useHotkey('Mod+K', () => {
+    assistantUi.toggle()
+  })
+
   return (
     <html lang="en">
       <head>
@@ -57,7 +64,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body>
         <CartHydrator />
         {children}
-        <AssistantShortcut />
+        <StorekeeperDrawer open={assistantOpen} onOpenChange={assistantUi.set} />
         <Toaster richColors position="bottom-right" />
         <TanStackDevtools
           config={{

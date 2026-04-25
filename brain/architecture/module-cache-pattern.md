@@ -30,4 +30,14 @@ Unlike the driver, `buildStorefrontCodeMode({ driver, sessionId, timeout })` (in
 
 If you ever want per-request bindings beyond `sessionId` (e.g. user-scoped tools), keep doing it via the `getSkillBindings` closure. Don't try to leak the request through the driver cache.
 
+## Failure mode if you regress the lazy import
+
+A static top-level `import { createNodeIsolateDriver } from '@tanstack/ai-isolate-node'` crashes Vite/Nitro at module-eval time. Symptoms in the browser:
+
+- "A component was suspended by an uncached promise" on every render
+- Page reload-loops with no obvious server-side error
+- Server logs are clean — the route module never finished evaluating
+
+`vite.config.ts` `ssr.external` must include the native/wasm packages so SSR doesn't try to bundle them: `isolated-vm`, `esbuild`, `quickjs-emscripten`, `quickjs-emscripten-core`, `@jitl/quickjs-wasmfile-release-asyncify`, `@jitl/quickjs-wasmfile-release-sync`, `@jitl/quickjs-wasmfile-debug-asyncify`, `@jitl/quickjs-wasmfile-debug-sync`. Plus `optimizeDeps.exclude` for `isolated-vm` and `quickjs-emscripten`. Plus the Nitro plugin's `rollupConfig.external` for `isolated-vm`.
+
 See [[architecture/code-mode]] and [[architecture/code-mode-execution-pipeline]].
