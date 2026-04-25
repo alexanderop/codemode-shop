@@ -14,18 +14,11 @@ export function SiteHeader({ onOpenAssistant }: { onOpenAssistant: () => void })
           </div>
           <div>
             <div className="font-semibold tracking-tight">codemode.shop</div>
-            <div className="text-xs text-muted-foreground">
-              shoes, but the AI does the work
-            </div>
+            <div className="text-xs text-muted-foreground">shoes, but the AI does the work</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            className="gap-2"
-            onClick={onOpenAssistant}
-          >
+          <Button size="sm" variant="secondary" className="gap-2" onClick={onOpenAssistant}>
             <Sparkles className="h-4 w-4" />
             Ask Storekeeper
           </Button>

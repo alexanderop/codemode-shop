@@ -6,9 +6,7 @@ import { runHandler } from '#/lib/storefront/run-handler'
 import type { CTAButtonProps } from '#/lib/storefront/ui-types'
 
 export function CTAButton(props: CTAButtonProps) {
-  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>(
-    'idle',
-  )
+  const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -65,9 +63,7 @@ export function CTAButton(props: CTAButtonProps) {
 
   return (
     <Button
-      variant={
-        state === 'done' || props.variant === 'secondary' ? 'secondary' : 'default'
-      }
+      variant={state === 'done' || props.variant === 'secondary' ? 'secondary' : 'default'}
       disabled={state === 'loading'}
       onClick={handleClick}
       className="w-full gap-2"

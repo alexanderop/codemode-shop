@@ -76,10 +76,7 @@ function pairResult(
   return next
 }
 
-function assignGroup(
-  calls: Array<ExternalCall>,
-  startedAt: number,
-): string {
+function assignGroup(calls: Array<ExternalCall>, startedAt: number): string {
   for (let i = calls.length - 1; i >= 0; i--) {
     const c = calls[i]
     if (startedAt - c.startedAt <= PARALLEL_WINDOW_MS) {
@@ -111,10 +108,7 @@ function emit() {
   for (const l of listeners) l()
 }
 
-function mutateTurn(
-  turnId: string,
-  fn: (turn: TurnActivity) => TurnActivity,
-) {
+function mutateTurn(turnId: string, fn: (turn: TurnActivity) => TurnActivity) {
   const existing = state.byTurnId[turnId]
   if (!existing) return
   const updated = fn(existing)
@@ -169,10 +163,7 @@ export const activityStore = {
     emit()
   },
 
-  setPriorAttempts: (
-    turnId: string,
-    attempts: TurnActivity['priorAttempts'],
-  ) => {
+  setPriorAttempts: (turnId: string, attempts: TurnActivity['priorAttempts']) => {
     mutateTurn(turnId, (turn) => ({ ...turn, priorAttempts: attempts }))
     emit()
   },
@@ -241,13 +232,7 @@ export const activityStore = {
       const duration = (data.duration as number | undefined) ?? 0
       mutateTurn(turnId, (turn) => ({
         ...turn,
-        calls: pairResult(
-          turn.calls,
-          fn,
-          undefined,
-          duration,
-          shortError(data.error),
-        ),
+        calls: pairResult(turn.calls, fn, undefined, duration, shortError(data.error)),
       }))
       emit()
       return

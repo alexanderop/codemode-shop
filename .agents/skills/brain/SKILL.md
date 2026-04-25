@@ -54,7 +54,7 @@ Update `brain/index.md` for any files you added or removed. Also update the rele
 
 ## Durability Test
 
-Ask: "Would I include this in a prompt for a *different* task?"
+Ask: "Would I include this in a prompt for a _different_ task?"
 
 - **Yes** -> write to `brain/`. It's durable knowledge.
 - **No, it's plan-specific** -> update the plan's docs instead.

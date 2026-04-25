@@ -36,7 +36,7 @@ export const searchProducts = toolDefinition({
 }).server((input) => {
   const q = input.query?.toLowerCase()
   const matches = PRODUCTS.filter((p) => {
-    if (q && !(`${p.name} ${p.brand}`.toLowerCase().includes(q))) return false
+    if (q && !`${p.name} ${p.brand}`.toLowerCase().includes(q)) return false
     if (input.category && p.category !== input.category) return false
     if (input.brand && p.brand.toLowerCase() !== input.brand.toLowerCase()) return false
     if (input.maxPrice != null && p.price > input.maxPrice) return false
@@ -95,9 +95,7 @@ export const getStockAndShipping = toolDefinition({
     shippingCost: z.number(),
   }),
 }).server(({ productId, size, width, zipCode }) => {
-  const row = STOCK.find(
-    (s) => s.productId === productId && s.size === size && s.width === width,
-  )
+  const row = STOCK.find((s) => s.productId === productId && s.size === size && s.width === width)
   const quantity = row?.quantity ?? 0
   const days = shippingEtaDays(zipCode)
   const arrival = new Date()

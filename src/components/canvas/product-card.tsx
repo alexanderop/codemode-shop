@@ -36,9 +36,7 @@ export function LiveProductCard({
           <div>
             <div className="text-xs text-muted-foreground">{props.brand}</div>
             <div className="font-semibold leading-tight">{props.name}</div>
-            {props.color && (
-              <div className="text-xs text-muted-foreground">{props.color}</div>
-            )}
+            {props.color && <div className="text-xs text-muted-foreground">{props.color}</div>}
           </div>
           <div className="shrink-0 text-right">
             <div className="font-semibold">${props.price}</div>

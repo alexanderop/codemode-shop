@@ -20,6 +20,7 @@ Before running the full planning workflow, assess whether this task actually nee
 Tell the user this task doesn't need a plan and suggest implementing directly without the plan skill. **Stop here — do not implement.**
 
 **Needs planning (proceed to Step 1):**
+
 - The change spans 3+ files or introduces new architecture
 - There are multiple valid approaches and the user should weigh in
 - The task has unclear scope or cross-cutting concerns
@@ -46,6 +47,7 @@ Frame questions with concrete options. If the request is already clear, confirm 
 **Always** delegate exploration to subagents via the `Task` tool. Never do large-scale codebase exploration in the main context.
 
 Spawn exploration agents (subagent_type: `Explore`) to:
+
 - Read existing code in affected areas
 - Identify patterns, conventions, and dependencies
 - Map architecture relevant to the change
@@ -92,6 +94,7 @@ Non-phase files (like `testing.md`) are fine alongside phases.
 ### Overview file
 
 Must include:
+
 - **Context** — what problem this solves and why
 - **Scope** — what's included, what's explicitly excluded
 - **Constraints** — technical, platform, dependency, or pattern constraints
@@ -102,13 +105,14 @@ Must include:
 ### Phase files
 
 Each phase file must include:
+
 - Back-link: `Back to [[plans/42-mvp/overview]]`
 - **Goal** — what this phase accomplishes
 - **Changes** — which files are affected and what changes, described at a high level
 - **Data structures** — name the key types/schemas before logic, but a one-line sketch is enough — don't write full definitions
 - **Verification** — static and runtime checks for this phase (see Step 6)
 
-**Keep plans high-level.** Describe *what* and *why*, not *how* at the code level. A phase should read like a brief to a senior engineer: goals, boundaries, key types, and verification — not code snippets or pseudocode.
+**Keep plans high-level.** Describe _what_ and _why_, not _how_ at the code level. A phase should read like a brief to a senior engineer: goals, boundaries, key types, and verification — not code snippets or pseudocode.
 
 Order phases per the sequencing principle: infrastructure and shared types first, features after. Each phase should be independently shippable.
 
@@ -117,6 +121,7 @@ Order phases per the sequencing principle: infrastructure and shared types first
 ### Redesign check
 
 For changes touching existing code, apply redesign-from-first-principles:
+
 > "If we were building this from scratch with this requirement, what would we build?"
 
 Don't bolt changes onto existing designs — redesign holistically.
@@ -130,12 +135,14 @@ For architectural decisions, briefly sketch 2-3 approaches in the overview's Con
 Every phase **must** have a verification section with both:
 
 ### Static
+
 - Type checking passes
 - Linting passes
 - Code follows project conventions
 - Tests written and passing
 
 ### Runtime
+
 - What to test manually (launch the app, exercise the feature path)
 - What automated tests to write (unit, integration, e2e)
 - Edge cases to cover

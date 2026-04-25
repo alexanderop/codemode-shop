@@ -1,8 +1,8 @@
 # codemode.shop
 
-A tiny shoe store with one big idea: the shopping assistant writes **TypeScript on the fly** inside a sandbox, and the UI *builds itself* as the code runs.
+A tiny shoe store with one big idea: the shopping assistant writes **TypeScript on the fly** inside a sandbox, and the UI _builds itself_ as the code runs.
 
-Built with TanStack Start, TanStack AI, shadcn/ui, and a QuickJS WASM isolate. The companion project to the blog post *"Code mode, live-rendered: when the LLM writes TypeScript and your UI assembles itself."*
+Built with TanStack Start, TanStack AI, shadcn/ui, and a QuickJS WASM isolate. The companion project to the blog post _"Code mode, live-rendered: when the LLM writes TypeScript and your UI assembles itself."_
 
 ![what this looks like: a shoe grid with a "Storekeeper" drawer that streams product cards, comparison tables, and an "add to cart" CTA as the LLM's code executes]
 
@@ -26,23 +26,23 @@ You need an `ANTHROPIC_API_KEY` from <https://console.anthropic.com>. The defaul
 
 Click **Ask Storekeeper** in the header and try:
 
-- *"Compare the three top-rated running shoes under $160 in size 10."*
-- *"Any wide-width trail shoes I could get by Friday?"*
-- *"Best-value basketball shoe that's actually in stock?"*
+- _"Compare the three top-rated running shoes under $160 in size 10."_
+- _"Any wide-width trail shoes I could get by Friday?"_
+- _"Best-value basketball shoe that's actually in stock?"_
 
 ## Architecture in seven files
 
 The tutorial is structured so each commit / section maps to one concept.
 
-| # | File | Concept |
-|---|------|---------|
-| 1 | `src/lib/catalog.ts` | In-memory catalog (30 shoes, inventory, reviews, price history). No backend. |
-| 2 | `src/lib/tools/catalog-tools.ts` | Headless TanStack AI tools: `searchProducts`, `getProduct`, `getStockAndShipping`, `getReviewSummary`, `getPriceHistory`, `addToCart`. These are the "external API surface" the sandboxed LLM code can call. |
-| 3 | `src/routes/api.storefront-agent.ts` | The server endpoint. `createCodeMode({ driver: createQuickJSIsolateDriver(), tools: catalogTools, getSkillBindings: … })` + Anthropic adapter + SSE. |
-| 4 | `src/lib/storefront/ui-bindings.ts` | The closed **UI vocabulary** the sandbox can render: `ui_addProductCard`, `ui_addStockPill`, `ui_addPriceSparkline`, `ui_addReviewBar`, `ui_addComparisonTable`, `ui_addCTA`, plus `ui_update`/`ui_remove`. Each binding emits a `storefront:ui` custom event. |
-| 5 | `src/lib/storefront/ui-prompt.ts` | Type-stubs for the UI vocabulary spliced into the system prompt so the LLM codes against a real `declare function …` surface. |
-| 6 | `src/lib/storefront/ui-store.ts` + `components/storefront-canvas.tsx` | Client reducer that turns streamed `UIEvent`s into a tree of React components. `useSyncExternalStore` keeps render-time minimal. |
-| 7 | `src/routes/api.storefront-handler.ts` + `src/lib/storefront/run-handler.ts` | Interactive CTAs re-enter code mode to verify stock and emit a `cart:update` event that bumps the header badge. Same pattern as the main agent — one tool, one generation, N effects. |
+| #   | File                                                                         | Concept                                                                                                                                                                                                                                                        |
+| --- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `src/lib/catalog.ts`                                                         | In-memory catalog (30 shoes, inventory, reviews, price history). No backend.                                                                                                                                                                                   |
+| 2   | `src/lib/tools/catalog-tools.ts`                                             | Headless TanStack AI tools: `searchProducts`, `getProduct`, `getStockAndShipping`, `getReviewSummary`, `getPriceHistory`, `addToCart`. These are the "external API surface" the sandboxed LLM code can call.                                                   |
+| 3   | `src/routes/api.storefront-agent.ts`                                         | The server endpoint. `createCodeMode({ driver: createQuickJSIsolateDriver(), tools: catalogTools, getSkillBindings: … })` + Anthropic adapter + SSE.                                                                                                           |
+| 4   | `src/lib/storefront/ui-bindings.ts`                                          | The closed **UI vocabulary** the sandbox can render: `ui_addProductCard`, `ui_addStockPill`, `ui_addPriceSparkline`, `ui_addReviewBar`, `ui_addComparisonTable`, `ui_addCTA`, plus `ui_update`/`ui_remove`. Each binding emits a `storefront:ui` custom event. |
+| 5   | `src/lib/storefront/ui-prompt.ts`                                            | Type-stubs for the UI vocabulary spliced into the system prompt so the LLM codes against a real `declare function …` surface.                                                                                                                                  |
+| 6   | `src/lib/storefront/ui-store.ts` + `components/storefront-canvas.tsx`        | Client reducer that turns streamed `UIEvent`s into a tree of React components. `useSyncExternalStore` keeps render-time minimal.                                                                                                                               |
+| 7   | `src/routes/api.storefront-handler.ts` + `src/lib/storefront/run-handler.ts` | Interactive CTAs re-enter code mode to verify stock and emit a `cart:update` event that bumps the header badge. Same pattern as the main agent — one tool, one generation, N effects.                                                                          |
 
 ## What the LLM actually writes
 
@@ -52,7 +52,10 @@ When you ask the assistant for "black running shoes under $150 in size 10", Clau
 await ui_showLoading({ id: 'l', label: 'Searching black running shoes…' })
 
 const { productIds } = await external_searchProducts({
-  category: 'Running', colors: ['black'], maxPrice: 150, size: '10',
+  category: 'Running',
+  colors: ['black'],
+  maxPrice: 150,
+  size: '10',
 })
 
 const rows = await Promise.all(
@@ -63,7 +66,7 @@ const rows = await Promise.all(
       external_getReviewSummary({ productId: id }),
     ])
     return { p, ship, rev }
-  })
+  }),
 )
 
 rows.sort((a, b) => b.rev.averageRating / b.p.price - a.rev.averageRating / a.p.price)
@@ -73,23 +76,38 @@ await ui_remove({ id: 'l' })
 for (const [i, { p, ship, rev }] of rows.entries()) {
   const cardId = `card-${p.id}`
   await ui_addProductCard({
-    id: cardId, productId: p.id, name: p.name, brand: p.brand, price: p.price,
-    imageUrl: p.imageUrl, rating: rev.averageRating, color: p.color, highlight: i === 0,
+    id: cardId,
+    productId: p.id,
+    name: p.name,
+    brand: p.brand,
+    price: p.price,
+    imageUrl: p.imageUrl,
+    rating: rev.averageRating,
+    color: p.color,
+    highlight: i === 0,
   })
   await ui_addStockPill({
-    id: `pill-${p.id}`, parentId: cardId,
-    inStock: ship.inStock, quantity: ship.quantity, arrivesBy: ship.arrivesBy, shippingCost: ship.shippingCost,
+    id: `pill-${p.id}`,
+    parentId: cardId,
+    inStock: ship.inStock,
+    quantity: ship.quantity,
+    arrivesBy: ship.arrivesBy,
+    shippingCost: ship.shippingCost,
   })
   await ui_addReviewBar({
-    id: `rev-${p.id}`, parentId: cardId,
-    rating: rev.averageRating, reviewCount: rev.reviewCount,
-    praise: rev.commonPraise, complaints: rev.commonComplaints,
+    id: `rev-${p.id}`,
+    parentId: cardId,
+    rating: rev.averageRating,
+    reviewCount: rev.reviewCount,
+    praise: rev.commonPraise,
+    complaints: rev.commonComplaints,
   })
 }
 
 const best = rows[0]
 await ui_addCTA({
-  id: 'cta', label: `Add ${best.p.name} to cart`,
+  id: 'cta',
+  label: `Add ${best.p.name} to cart`,
   handlerId: 'addToCart',
   payload: { productId: best.p.id, size: '10', quantity: 1 },
   variant: 'primary',

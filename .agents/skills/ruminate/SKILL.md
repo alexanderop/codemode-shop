@@ -58,7 +58,7 @@ After all agents complete, read all findings files. Cross-reference with existin
 
 **Filter by frequency and impact.** Most findings won't be worth adding. Apply these filters before presenting:
 
-- **Frequency**: Did this come up in multiple conversations, or was the user correcting the same mistake repeatedly? One-off corrections are usually not worth a brain entry — the brain should capture *patterns*, not incidents.
+- **Frequency**: Did this come up in multiple conversations, or was the user correcting the same mistake repeatedly? One-off corrections are usually not worth a brain entry — the brain should capture _patterns_, not incidents.
 - **Factual accuracy**: Is something in the brain now wrong? These are always worth fixing regardless of frequency.
 - **Impact**: Would failing to capture this cause repeated wasted effort in future sessions?
 

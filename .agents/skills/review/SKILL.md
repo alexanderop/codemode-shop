@@ -22,6 +22,7 @@ Read `brain/principles.md`. Follow every `[[wikilink]]` and read each linked pri
 Infer what to review from context — the user's message, recent diffs, or referenced plans/PRs. If genuinely ambiguous (nothing to infer), ask.
 
 Auto-detect review mode from change size:
+
 - **BIG CHANGE** (50+ lines changed, 3+ files, or new architecture) — all sections, at most 4 top issues per section
 - **SMALL CHANGE** (under those thresholds) — one issue per section
 
@@ -32,6 +33,7 @@ For **SMALL CHANGE** reviews, read files directly in the main context — delega
 For **BIG CHANGE** reviews, delegate exploration to subagents via the `Task` tool.
 
 Spawn exploration agents (subagent_type: `Explore`) to:
+
 - Read the code or plan under review
 - Identify dependencies, callers, and downstream effects
 - Map relevant types, tests, and infrastructure
@@ -53,6 +55,7 @@ Work through all sections in order. For each section, check against loaded princ
 ### 1. Scope Check
 
 If the review targets work against a plan phase:
+
 - Read the plan phase that was assigned.
 - Run `git diff --stat` and `git log --oneline` for the relevant commits.
 - Flag files changed outside the plan phase's stated scope as scope violations.
@@ -60,12 +63,14 @@ If the review targets work against a plan phase:
 If no plan phase applies, skip this subsection.
 
 ### 2. Architecture
+
 - System design and component boundaries
 - Dependency graph and coupling
 - Data flow patterns and bottlenecks
 - Security architecture (auth, data access, API boundaries)
 
 ### 3. Code Quality
+
 - Code organization and module structure
 - DRY violations — be aggressive
 - Error handling patterns and missing edge cases (call out explicitly)
@@ -73,6 +78,7 @@ If no plan phase applies, skip this subsection.
 - Technical debt hotspots
 
 ### 4. Tests
+
 - Coverage gaps (unit, integration, e2e)
 - Test quality and assertion strength
 - Missing edge case coverage — be thorough
@@ -80,6 +86,7 @@ If no plan phase applies, skip this subsection.
 - New behavior must have new tests. Tests must assert outcomes, not implementation details.
 
 ### 5. Performance
+
 - N+1 queries and database access patterns
 - Memory-usage concerns
 - Caching opportunities
@@ -88,6 +95,7 @@ If no plan phase applies, skip this subsection.
 ### Principle Compliance
 
 For each changed file, check against loaded principles. Common violations:
+
 - Bolted-on changes instead of redesign (redesign-from-first-principles)
 - Missing verification (prove-it-works)
 - Unnecessarily added complexity (subtract-before-you-add)

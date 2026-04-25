@@ -20,8 +20,8 @@ function Home() {
               This week's drops
             </h1>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              30 shoes, honest reviews, a storekeeper that writes TypeScript on
-              the fly to pick the right one for you.
+              30 shoes, honest reviews, a storekeeper that writes TypeScript on the fly to pick the
+              right one for you.
             </p>
           </div>
         </div>

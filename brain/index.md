@@ -1,12 +1,15 @@
 # Brain
 
 ## Architecture
+
 - [[architecture]]
 
 ## Conventions
+
 - [[conventions]]
 
 ## Principles
+
 - [[principles]]
 - [[principles/boundary-discipline]]
 - [[principles/cost-aware-delegation]]
@@ -26,4 +29,5 @@
 - [[principles/prove-it-works]]
 
 ## Plans
+
 - [[plans/index]]

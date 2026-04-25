@@ -18,10 +18,7 @@ export interface HandlerRequest {
  * Fire a CTA click at /api/storefront-handler and apply the streamed UI/cart
  * events as they arrive. Returns the shopper-facing confirmation text.
  */
-export async function runHandler(
-  req: HandlerRequest,
-  signal?: AbortSignal,
-): Promise<string> {
+export async function runHandler(req: HandlerRequest, signal?: AbortSignal): Promise<string> {
   const res = await fetch('/api/storefront-handler', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

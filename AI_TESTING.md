@@ -62,7 +62,7 @@ This shape gives us **unusually rich testing seams** for an LLM app:
 
 What this means: **most of the "AI app" can be tested without ever calling
 an LLM.** The real LLM only needs to be tested on whether it generates
-*good programs* — and that's a narrow, high-value eval, not a per-PR gate.
+_good programs_ — and that's a narrow, high-value eval, not a per-PR gate.
 
 ## What we're NOT trying to test
 
@@ -82,15 +82,15 @@ Be explicit about scope:
 These are the cheap, fast tests that should run on every PR alongside lint
 and types. Each targets a pure or near-pure function.
 
-| Target                                        | Type      | What to assert                                                                  |
-| --------------------------------------------- | --------- | ------------------------------------------------------------------------------- |
-| `src/lib/storefront/ui-store.ts`              | reducer   | add / update / remove / clear / version (already in `QUALITY.md`)               |
-| `src/lib/client-cart.ts`                      | store     | set / increment / subscribe                                                      |
-| `src/lib/storefront/activity-store.ts`        | store     | event recording, pruning                                                        |
-| `src/lib/catalog.ts`                          | data      | `searchProducts` filtering, `addToCart` math, deterministic ID lookups          |
-| `src/lib/tools/catalog-tools.ts`              | adapters  | tool input validation, error mapping                                            |
-| `src/lib/storefront/ui-bindings.ts`           | bindings  | each binding emits the right `UIEvent` given valid args; rejects bad args via zod |
-| SSE frame parser inside `run-handler.ts`      | parser    | parses partial frames correctly across chunk boundaries                          |
+| Target                                   | Type     | What to assert                                                                    |
+| ---------------------------------------- | -------- | --------------------------------------------------------------------------------- |
+| `src/lib/storefront/ui-store.ts`         | reducer  | add / update / remove / clear / version (already in `QUALITY.md`)                 |
+| `src/lib/client-cart.ts`                 | store    | set / increment / subscribe                                                       |
+| `src/lib/storefront/activity-store.ts`   | store    | event recording, pruning                                                          |
+| `src/lib/catalog.ts`                     | data     | `searchProducts` filtering, `addToCart` math, deterministic ID lookups            |
+| `src/lib/tools/catalog-tools.ts`         | adapters | tool input validation, error mapping                                              |
+| `src/lib/storefront/ui-bindings.ts`      | bindings | each binding emits the right `UIEvent` given valid args; rejects bad args via zod |
+| SSE frame parser inside `run-handler.ts` | parser   | parses partial frames correctly across chunk boundaries                           |
 
 **Pattern for bindings tests** — call the binding with a fake context:
 
@@ -103,8 +103,7 @@ describe('ui_addProductCard', () => {
     const bindings = createStorefrontUIBindings()
     const events: Array<{ name: string; value: unknown }> = []
     const fakeContext = {
-      emitCustomEvent: (name: string, value: unknown) =>
-        events.push({ name, value }),
+      emitCustomEvent: (name: string, value: unknown) => events.push({ name, value }),
     }
 
     await bindings.ui_addProductCard.execute(
@@ -268,7 +267,8 @@ export const queries = [
       mustEmitTypes: ['productCard', 'ctaButton'],
       mustHaveCtaId: true,
       // LLM-judge rubric
-      rubric: 'Did the assistant recommend running shoes priced under $200, with at least one product card visible and a clear primary CTA?',
+      rubric:
+        'Did the assistant recommend running shoes priced under $200, with at least one product card visible and a clear primary CTA?',
     },
   },
   // ...20–30 of these covering happy paths, edge cases, ambiguity, and refusals
@@ -295,7 +295,7 @@ A single `evals/run.ts` script:
 ### Don't
 
 - **Don't snapshot the program text.** It varies legitimately. Snapshot the
-  *outcomes* (events, tool calls), not the program.
+  _outcomes_ (events, tool calls), not the program.
 - **Don't snapshot the prose response.** Score it via rubric.
 - **Don't run on every PR.** Real-LLM evals cost real money and take
   minutes. Run nightly via `schedule:` cron in GitHub Actions, plus a
@@ -313,14 +313,14 @@ A single `evals/run.ts` script:
 
 ## Tooling: build vs. buy
 
-| Option        | When it makes sense                                                    | Verdict for us                                  |
-| ------------- | ---------------------------------------------------------------------- | ----------------------------------------------- |
-| Vitest + custom eval script | Solo / small team, simple eval needs, in-repo fixtures        | ✅ **Start here.** All ingredients already in deps. |
-| **Promptfoo**     | CLI-driven, local-only, strong red-team coverage, zero cloud deps     | Reasonable add when we have ≥30 fixtures and want shared run history. |
-| **Braintrust**    | Need persistent dashboards, prod monitoring, non-eng stakeholders     | Premature. Revisit if/when this is a team-of-many product. |
-| **Inspect AI**    | Research-grade rigor, Python ecosystem                                | Wrong language, wrong shape for our app.         |
-| **DeepEval**      | Maximum metric coverage, RAG-heavy stacks                             | Overkill. We're not RAG.                         |
-| **LangSmith**     | LangChain stack                                                       | Not our stack.                                   |
+| Option                      | When it makes sense                                               | Verdict for us                                                        |
+| --------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Vitest + custom eval script | Solo / small team, simple eval needs, in-repo fixtures            | ✅ **Start here.** All ingredients already in deps.                   |
+| **Promptfoo**               | CLI-driven, local-only, strong red-team coverage, zero cloud deps | Reasonable add when we have ≥30 fixtures and want shared run history. |
+| **Braintrust**              | Need persistent dashboards, prod monitoring, non-eng stakeholders | Premature. Revisit if/when this is a team-of-many product.            |
+| **Inspect AI**              | Research-grade rigor, Python ecosystem                            | Wrong language, wrong shape for our app.                              |
+| **DeepEval**                | Maximum metric coverage, RAG-heavy stacks                         | Overkill. We're not RAG.                                              |
+| **LangSmith**               | LangChain stack                                                   | Not our stack.                                                        |
 
 **Recommendation**: vitest for Layers 1 + 2; a single hand-rolled TS file
 (~300 lines) for Layer 3. Reassess in 3 months — if the eval suite has >50
@@ -335,7 +335,7 @@ These come up in every "testing AI apps" thread. Don't:
 - ❌ **Snapshot the LLM's prose response.** It varies on every run; you'll
   spend more time updating snapshots than catching regressions.
 - ❌ **Pin tool-call sequence.** Programs find legitimate alternative
-  orderings. Pin the *set* of tools called, or the outcomes.
+  orderings. Pin the _set_ of tools called, or the outcomes.
 - ❌ **Use the same model as judge and judged.** Anthropic recommends
   different models. Our eval is generated by Haiku → judged by Sonnet (or
   vice versa).
@@ -418,8 +418,7 @@ function mkContext() {
   return {
     events,
     ctx: {
-      emitCustomEvent: (name: string, value: unknown) =>
-        events.push({ name, value }),
+      emitCustomEvent: (name: string, value: unknown) => events.push({ name, value }),
     },
   }
 }
@@ -479,9 +478,7 @@ describe('storefront UI bindings', () => {
   it('zod schema rejects bad input', async () => {
     const { ctx } = mkContext()
     const b = createStorefrontUIBindings()
-    await expect(
-      b.ui_addProductCard.execute({ id: 'p1' }, ctx),
-    ).rejects.toThrow()
+    await expect(b.ui_addProductCard.execute({ id: 'p1' }, ctx)).rejects.toThrow()
   })
 })
 ```

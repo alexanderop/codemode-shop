@@ -21,13 +21,7 @@ export type ConsoleLog = {
   timestamp: number
 }
 
-export type TurnStatus =
-  | 'writing'
-  | 'running'
-  | 'rendering'
-  | 'succeeded'
-  | 'warned'
-  | 'failed'
+export type TurnStatus = 'writing' | 'running' | 'rendering' | 'succeeded' | 'warned' | 'failed'
 
 export type CanvasSnapshot = {
   rootIds: Array<string>

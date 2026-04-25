@@ -17,7 +17,10 @@ export function StockPill(props: StockPillProps) {
   }
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs">
-      <Badge variant="secondary" className="gap-1 bg-emerald-100 text-emerald-900 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-100">
+      <Badge
+        variant="secondary"
+        className="gap-1 bg-emerald-100 text-emerald-900 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-100"
+      >
         <Check className="h-3 w-3" />
         {props.quantity ? `${props.quantity} in stock` : 'In stock'}
       </Badge>

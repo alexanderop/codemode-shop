@@ -1,10 +1,4 @@
-export type ShoeCategory =
-  | 'Running'
-  | 'Lifestyle'
-  | 'Trail'
-  | 'Basketball'
-  | 'Training'
-  | 'Racing'
+export type ShoeCategory = 'Running' | 'Lifestyle' | 'Trail' | 'Basketball' | 'Training' | 'Racing'
 
 export type Width = 'narrow' | 'standard' | 'wide'
 
@@ -41,8 +35,7 @@ export interface PricePoint {
   price: number
 }
 
-const img = (seed: string) =>
-  `https://picsum.photos/seed/${encodeURIComponent(seed)}/600/600`
+const img = (seed: string) => `https://picsum.photos/seed/${encodeURIComponent(seed)}/600/600`
 
 export const PRODUCTS: Array<Product> = [
   {
@@ -547,7 +540,12 @@ function cartKey(productId: string, size: string, width: Width) {
   return `${productId}|${size}|${width}`
 }
 
-export function addToCart(args: { productId: string; size: string; width: Width; quantity: number }) {
+export function addToCart(args: {
+  productId: string
+  size: string
+  width: Width
+  quantity: number
+}) {
   const key = cartKey(args.productId, args.size, args.width)
   const existing = cart.get(key)
   if (existing) {

@@ -13,11 +13,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { cn } from '#/lib/utils'
-import type {
-  ExternalCall,
-  TurnActivity,
-  TurnStatus,
-} from '#/lib/storefront/activity-types'
+import type { ExternalCall, TurnActivity, TurnStatus } from '#/lib/storefront/activity-types'
 
 type BandTone = 'slate' | 'emerald' | 'amber' | 'red' | 'sky'
 
@@ -65,8 +61,7 @@ function labelFor(turn: TurnActivity): string {
   }
   const total = turn.calls.length
   const failed = turn.calls.filter((c) => c.error).length
-  const duration =
-    turn.endedAt && turn.startedAt ? turn.endedAt - turn.startedAt : undefined
+  const duration = turn.endedAt && turn.startedAt ? turn.endedAt - turn.startedAt : undefined
   const dur = duration != null ? ` · ${duration}ms` : ''
   if (status === 'warned') {
     return `Ran program · ${total - failed} of ${total} calls ok${dur}`
@@ -121,36 +116,24 @@ function formatResult(result: unknown): string {
 function CallRow({ call, indent }: { call: ExternalCall; indent: boolean }) {
   const failed = !!call.error
   const pending = call.endedAt == null
-  const duration =
-    call.endedAt != null ? call.endedAt - call.startedAt : undefined
+  const duration = call.endedAt != null ? call.endedAt - call.startedAt : undefined
   return (
-    <div
-      className={cn(
-        'flex items-start gap-2 font-mono text-[11px] leading-5',
-        indent && 'pl-4',
-      )}
-    >
-      <span className="shrink-0 select-none text-muted-foreground">
-        {indent ? '├─' : '─'}
-      </span>
+    <div className={cn('flex items-start gap-2 font-mono text-[11px] leading-5', indent && 'pl-4')}>
+      <span className="shrink-0 select-none text-muted-foreground">{indent ? '├─' : '─'}</span>
       <span className="min-w-0 flex-1">
         <span className={cn(call.kind === 'render' && 'text-violet-600 dark:text-violet-400')}>
           {call.function}
         </span>
         <span className="text-muted-foreground">({formatArgs(call.args)})</span>
         {failed && (
-          <span className="ml-2 text-red-600 dark:text-red-400">
-            ✗ {truncate(call.error!, 80)}
-          </span>
+          <span className="ml-2 text-red-600 dark:text-red-400">✗ {truncate(call.error!, 80)}</span>
         )}
         {!failed && !pending && (
           <span className="ml-2 text-emerald-700 dark:text-emerald-400">
             ✓ {formatResult(call.result)}
           </span>
         )}
-        {pending && (
-          <span className="ml-2 text-muted-foreground">…</span>
-        )}
+        {pending && <span className="ml-2 text-muted-foreground">…</span>}
       </span>
       <span className="shrink-0 text-muted-foreground tabular-nums">
         {duration != null ? `${duration}ms` : ''}
@@ -174,7 +157,9 @@ function GroupRow({ group }: { group: Group }) {
       <div className="flex items-center gap-1.5 px-2 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
         <Zap className="h-3 w-3" />
         parallel · {total}ms · {okCount} ok
-        {failCount > 0 && <span className="text-red-600 dark:text-red-400">, {failCount} failed</span>}
+        {failCount > 0 && (
+          <span className="text-red-600 dark:text-red-400">, {failCount} failed</span>
+        )}
         {pendingCount > 0 && <span>, {pendingCount} pending</span>}
       </div>
       {group.calls.map((c) => (
@@ -187,11 +172,7 @@ function GroupRow({ group }: { group: Group }) {
 function CallsTab({ turn }: { turn: TurnActivity }) {
   const groups = useMemo(() => groupCalls(turn.calls), [turn.calls])
   if (!groups.length) {
-    return (
-      <div className="p-3 text-xs text-muted-foreground">
-        No calls yet.
-      </div>
-    )
+    return <div className="p-3 text-xs text-muted-foreground">No calls yet.</div>
   }
   return (
     <div className="space-y-1 p-2">
@@ -200,7 +181,8 @@ function CallsTab({ turn }: { turn: TurnActivity }) {
       ))}
       {turn.endedAt && turn.returnValue != null && (
         <div className="pt-1 font-mono text-[11px] text-muted-foreground">
-          → returned {truncate(
+          → returned{' '}
+          {truncate(
             typeof turn.returnValue === 'string'
               ? `"${turn.returnValue}"`
               : JSON.stringify(turn.returnValue),
@@ -216,9 +198,7 @@ function CodeTab({ turn }: { turn: TurnActivity }) {
   if (!turn.code) {
     return (
       <div className="p-3 text-xs text-muted-foreground">
-        {turn.endedAt
-          ? 'No code captured for this turn.'
-          : 'Model is writing the program…'}
+        {turn.endedAt ? 'No code captured for this turn.' : 'Model is writing the program…'}
       </div>
     )
   }
@@ -250,11 +230,7 @@ function CodeTab({ turn }: { turn: TurnActivity }) {
 
 function LogsTab({ turn }: { turn: TurnActivity }) {
   if (!turn.logs.length) {
-    return (
-      <div className="p-3 text-xs text-muted-foreground">
-        No console output.
-      </div>
-    )
+    return <div className="p-3 text-xs text-muted-foreground">No console output.</div>
   }
   return (
     <div className="space-y-1 p-2 font-mono text-[11px] leading-5">
@@ -347,20 +323,14 @@ export function ProgramCard({
             <span className="flex-1 font-medium">{labelFor(turn)}</span>
             {hasAnything && (
               <ChevronDown
-                className={cn(
-                  'h-4 w-4 shrink-0 transition-transform',
-                  open && 'rotate-180',
-                )}
+                className={cn('h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')}
               />
             )}
           </button>
         </Collapsible.Trigger>
         <Collapsible.Content>
           <div className="border-t border-current/20 bg-background/70">
-            <Tabs.Root
-              value={tab}
-              onValueChange={(v) => setTab(v as typeof tab)}
-            >
+            <Tabs.Root value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
               <Tabs.List className="flex gap-1 border-b border-border bg-muted/30 px-2 py-1">
                 <TabTrigger value="calls" icon={<Zap className="h-3 w-3" />}>
                   Calls
@@ -372,9 +342,7 @@ export function ProgramCard({
                 <TabTrigger value="logs" icon={<Terminal className="h-3 w-3" />}>
                   Logs
                   {turn.logs.length > 0 && (
-                    <span className="ml-1 text-muted-foreground">
-                      {turn.logs.length}
-                    </span>
+                    <span className="ml-1 text-muted-foreground">{turn.logs.length}</span>
                   )}
                 </TabTrigger>
                 <TabTrigger value="result" icon={<FileText className="h-3 w-3" />}>

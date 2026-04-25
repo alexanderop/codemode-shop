@@ -18,9 +18,14 @@ export function PriceSparkline(props: PriceSparklineProps) {
     })
     .join(' ')
 
-  const trend = currentPrice < points[0]!.price ? 'down' : currentPrice > points[0]!.price ? 'up' : 'flat'
+  const trend =
+    currentPrice < points[0]!.price ? 'down' : currentPrice > points[0]!.price ? 'up' : 'flat'
   const stroke =
-    trend === 'down' ? 'stroke-emerald-500' : trend === 'up' ? 'stroke-red-500' : 'stroke-muted-foreground'
+    trend === 'down'
+      ? 'stroke-emerald-500'
+      : trend === 'up'
+        ? 'stroke-red-500'
+        : 'stroke-muted-foreground'
 
   return (
     <div className="flex items-center justify-between rounded-md border bg-muted/30 px-2 py-1.5">

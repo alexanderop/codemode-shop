@@ -17,13 +17,13 @@ do not pull those forward.
 
 After this work, every PR runs four required checks in parallel:
 
-| Job        | Command           | What it catches                          |
-| ---------- | ----------------- | ---------------------------------------- |
-| `lint`     | `pnpm lint`       | Bad patterns, unused imports, JSX issues |
-| `format`   | `pnpm format:check` | Style drift                            |
-| `types`    | `pnpm typecheck`  | Type errors (strict mode)                |
-| `knip`     | `pnpm knip`       | Dead code, unused deps, unused exports   |
-| `test`     | `pnpm test`       | Unit tests (vitest)                      |
+| Job      | Command             | What it catches                          |
+| -------- | ------------------- | ---------------------------------------- |
+| `lint`   | `pnpm lint`         | Bad patterns, unused imports, JSX issues |
+| `format` | `pnpm format:check` | Style drift                              |
+| `types`  | `pnpm typecheck`    | Type errors (strict mode)                |
+| `knip`   | `pnpm knip`         | Dead code, unused deps, unused exports   |
+| `test`   | `pnpm test`         | Unit tests (vitest)                      |
 
 Plus a separate `autofix.yml` that runs `lint --fix` + `format` and
 auto-commits to PR branches.
@@ -222,7 +222,7 @@ pnpm add -D oxfmt
 
 (If the package name differs by the time you read this, check
 <https://github.com/oxc-project/oxc> — adjust the install + script names to
-whatever the README there says, but **do not** add Prettier *in addition* to
+whatever the README there says, but **do not** add Prettier _in addition_ to
 oxfmt. Pick one.)
 
 ### 3b. Configure
@@ -324,11 +324,7 @@ Create `knip.config.ts` at repo root:
 import type { KnipConfig } from 'knip'
 
 const config: KnipConfig = {
-  entry: [
-    'src/router.tsx',
-    'src/routes/**/*.{ts,tsx}',
-    'vite.config.ts',
-  ],
+  entry: ['src/router.tsx', 'src/routes/**/*.{ts,tsx}', 'vite.config.ts'],
   project: ['src/**/*.{ts,tsx}'],
   ignore: ['src/routeTree.gen.ts'],
   ignoreDependencies: [
@@ -458,9 +454,7 @@ describe('uiStore reducer', () => {
       props: { title: 'Renamed' } as never,
     })
     const state = uiStore.get()
-    expect((state.nodes.get('root1')?.props as { title: string }).title).toBe(
-      'Renamed',
-    )
+    expect((state.nodes.get('root1')?.props as { title: string }).title).toBe('Renamed')
   })
 
   it('remove deletes node and descendants', () => {
@@ -712,7 +706,7 @@ Tick before opening the PR:
 
 - ❌ Don't add Codecov, Playwright, Lighthouse, or Chromatic. They're follow-ups.
 - ❌ Don't refactor source code to satisfy linter findings. Disable the rule, file a ticket.
-- ❌ Don't add ESLint. We're picking oxlint *instead* of ESLint, not in addition.
+- ❌ Don't add ESLint. We're picking oxlint _instead_ of ESLint, not in addition.
 - ❌ Don't unpin SHAs to floating tags. Ever.
 - ❌ Don't add a vitest "projects" split. Premature for a single test file.
 - ❌ Don't enable `merge_group` triggers — there's no merge queue.

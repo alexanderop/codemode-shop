@@ -18,15 +18,8 @@ import { FrozenCanvas } from '#/components/frozen-canvas'
 import { ProgramCard, PriorAttemptChip } from '#/components/program-card'
 import { InlineErrorCard } from '#/components/inline-error-card'
 import { uiStore } from '#/lib/storefront/ui-store'
-import {
-  activityStore,
-  snapshotUIState,
-  useActivityState,
-} from '#/lib/storefront/activity-store'
-import type {
-  PriorAttempt,
-  TerminalError,
-} from '#/lib/storefront/activity-types'
+import { activityStore, snapshotUIState, useActivityState } from '#/lib/storefront/activity-store'
+import type { PriorAttempt, TerminalError } from '#/lib/storefront/activity-types'
 import type { UIEvent } from '#/lib/storefront/ui-types'
 
 type AnyMessage = {
@@ -56,9 +49,7 @@ function assistantTurnId(
 }
 
 function extractToolCallData(parts: Array<any>) {
-  const calls = parts.filter(
-    (p) => p.type === 'tool-call' && p.name === 'execute_typescript',
-  )
+  const calls = parts.filter((p) => p.type === 'tool-call' && p.name === 'execute_typescript')
   return calls
 }
 
@@ -158,10 +149,7 @@ export function StorekeeperDrawer({
         if (last.output.success) {
           activityStore.setReturnValue(tid, last.output.result)
         } else {
-          activityStore.setTerminalError(
-            tid,
-            toTerminalErrorFromOutput(last.output),
-          )
+          activityStore.setTerminalError(tid, toTerminalErrorFromOutput(last.output))
         }
       }
     }
@@ -211,9 +199,8 @@ export function StorekeeperDrawer({
             Storekeeper
           </SheetTitle>
           <SheetDescription>
-            Ask for shoes in plain English. Each answer comes from a TypeScript
-            program the model writes and runs in a sandbox — click the program
-            card to see what it did.
+            Ask for shoes in plain English. Each answer comes from a TypeScript program the model
+            writes and runs in a sandbox — click the program card to see what it did.
           </SheetDescription>
         </SheetHeader>
 
@@ -223,10 +210,7 @@ export function StorekeeperDrawer({
               <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
                 <div className="font-medium text-foreground">Try one of these:</div>
                 <ul className="mt-2 space-y-1.5">
-                  <li>
-                    “Compare the three top-rated running shoes under $160 in size
-                    10.”
-                  </li>
+                  <li>“Compare the three top-rated running shoes under $160 in size 10.”</li>
                   <li>“Any wide-width trail shoes I could get by Friday?”</li>
                   <li>“Best-value basketball shoe that's actually in stock?”</li>
                 </ul>
@@ -249,11 +233,7 @@ export function StorekeeperDrawer({
               if (m.role !== 'assistant') return null
 
               assistantIdxCursor++
-              const tid = assistantTurnId(
-                typedMessages,
-                assistantIdxCursor,
-                turnIdsRef.current,
-              )
+              const tid = assistantTurnId(typedMessages, assistantIdxCursor, turnIdsRef.current)
               const turn = tid ? activityState.byTurnId[tid] : null
 
               const textParts = m.parts.filter((p: any) => p.type === 'text')
@@ -281,7 +261,11 @@ export function StorekeeperDrawer({
                   )}
                   {textParts.length > 0 && (
                     <div className="prose prose-sm dark:prose-invert max-w-none rounded-lg bg-muted px-3 py-2 text-sm">
-                      <ComarkClient markdown={markdown} streaming={isLiveStream} caret={isLiveStream} />
+                      <ComarkClient
+                        markdown={markdown}
+                        streaming={isLiveStream}
+                        caret={isLiveStream}
+                      />
                     </div>
                   )}
                   {turn?.canvasSnapshot && turn.canvasSnapshot.rootIds.length > 0 && (
@@ -291,9 +275,7 @@ export function StorekeeperDrawer({
                     <InlineErrorCard
                       title="Storekeeper couldn't finish this one."
                       message={
-                        terminal.name
-                          ? `${terminal.name}: ${terminal.message}`
-                          : terminal.message
+                        terminal.name ? `${terminal.name}: ${terminal.message}` : terminal.message
                       }
                       onRetry={() => void handleRetry()}
                       onAskDifferently={() => inputRef.current?.focus()}
