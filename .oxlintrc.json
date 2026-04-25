@@ -19,11 +19,23 @@
     ".output",
     ".nitro",
     ".tanstack",
-    "src/routeTree.gen.ts"
+    "src/app/routeTree.gen.ts"
   ],
+  "plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y"],
+  "settings": {
+    "react": {
+      "version": "19.0.0"
+    }
+  },
+  "jsPlugins": ["./tools/oxlint-plugin-boundaries/index.js"],
   "rules": {
     "no-console": "off",
-    "no-unused-vars": "off"
+    "no-unused-vars": "off",
+    "boundaries/no-cross-feature-imports": "error",
+    "react/react-in-jsx-scope": "off",
+    "react/button-has-type": "error",
+    "react/jsx-no-target-blank": "error",
+    "react/self-closing-comp": "warn"
   },
   "overrides": [
     {

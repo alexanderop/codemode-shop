@@ -16,3 +16,5 @@ When we decide a new API is the right design, migrate callers and remove the old
 - The new API is part of a simplification/refactor initiative
 
 Keeping both old and new APIs creates dual-path complexity, slows cleanup, and makes the codebase feel append-only.
+
+This is the concrete sequencing rule for refactor waves under [[principles/outcome-oriented-execution]] — that principle accepts intermediate breakage; this one says don't paper over it with a transitional adapter.

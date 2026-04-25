@@ -8,4 +8,4 @@
   - Auto-sorted (Prettier / ESLint plugin).
 - **`import type`** separated from runtime imports — see [[conventions/typescript-style/types]].
 
-This repo's layout already follows the spirit: `src/routes/` for file-based routes, `src/lib/<feature>/` for feature code (`storefront`, `tools`, `catalog`, etc.), `src/components/` for shared UI.
+This repo's layout already follows the spirit: `src/app/routes/` for file-based routes, `src/features/<feature>/` for feature code (e.g. `src/features/storefront/{api,components,stores,types,testing}` — see [[architecture/ui-primitive]] for a worked example), `src/lib/` for cross-feature primitives (`tools`, `catalog`, `cart`, `orders`, `session`), `src/components/` for shared UI.

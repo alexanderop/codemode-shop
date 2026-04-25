@@ -4,9 +4,17 @@
 
 - `pnpm dev` — dev server on `http://localhost:3000`
 - `pnpm build` / `pnpm preview` — production build / preview
-- `pnpm test` — `vitest` (test runner wired, no tests yet)
+- `pnpm test` — full vitest run; `pnpm test:unit` (node project), `pnpm test:dom` (jsdom project), `pnpm test:e2e` (Playwright)
+- `pnpm typecheck` — `tsc --noEmit`
+- `pnpm lint` / `pnpm lint:fix` — oxlint
+- `pnpm format` / `pnpm format:check` — oxfmt
+- `pnpm knip` — unused-export / dead-file scan
 
 Requires `ANTHROPIC_API_KEY` in `.env`. `STOREFRONT_MODEL` overrides the model (default `claude-haiku-4-5`).
+
+## Verification
+
+After completing any UI-affecting change, **verify in a real browser** using the `agent-browser` CLI before reporting the task done. Open the relevant page on `http://localhost:3000`, exercise the changed flow (`open`, `click`, `type`, `scroll`, etc.), and capture a `screenshot` or `snapshot` to confirm the fix. If verification isn't possible, say so explicitly — don't claim success based on type-checks or tests alone. Run `agent-browser --help` for the full command list.
 
 # Brain
 

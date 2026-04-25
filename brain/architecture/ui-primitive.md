@@ -1,9 +1,9 @@
 # Adding a new UI primitive
 
-Must be done in all five places or it breaks:
+The registry collapsed the old "five places" into **three**:
 
-1. `src/lib/storefront/ui-types.ts` — add `XxxProps` interface and extend `ComponentPropsByType`.
-2. `src/lib/storefront/ui-bindings.ts` — add a `component('xxx', …)` entry to `createStorefrontUIBindings()` and a case to the `switch` inside `component()`.
-3. `src/lib/storefront/ui-store.ts` — add cases to `createNode` and `updateNodeProps`.
-4. `src/lib/storefront/ui-prompt.ts` — add the `declare function ui_xxx(...)` stub so the LLM codes against it.
-5. `src/components/canvas/xxx.tsx` + case in `src/components/canvas/render-node.tsx`.
+1. `src/features/storefront/types/ui-types.ts` — add `XxxProps` interface and extend `ComponentPropsByType`.
+2. `src/features/storefront/api/ui-registry.ts` — add an entry to `storefrontUIPrimitives` (type + functionName + description + zod propsShape + prompt declaration). `ui-bindings.ts` and `ui-prompt.ts` iterate this array — no edits there.
+3. `src/features/storefront/components/canvas/xxx.tsx` (the React component) + a case in `src/features/storefront/components/canvas/render-registry.tsx`.
+
+That's it. The brain previously listed five files; `ui-store.ts` is now generic (handles any type) and `ui-bindings.ts` / `ui-prompt.ts` derive from the registry, so they don't need touching.

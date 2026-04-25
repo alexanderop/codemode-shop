@@ -5,10 +5,17 @@ import type { KnipConfig } from 'knip'
 // land the lint/format/types/knip/test pipeline, not to clean the codebase.
 
 const config: KnipConfig = {
-  entry: ['src/router.tsx', 'src/routes/**/*.{ts,tsx}'],
-  project: ['src/**/*.{ts,tsx}'],
+  entry: [
+    'src/app/router.tsx',
+    'src/app/routes/**/*.{ts,tsx}',
+    'src/**/*.test.{ts,tsx}',
+    'src/**/*.dom.test.{ts,tsx}',
+    'test/**/*.test.{ts,tsx}',
+    'test/playwright/**/*.{ts,tsx}',
+  ],
+  project: ['src/**/*.{ts,tsx}', 'test/**/*.{ts,tsx}'],
   ignore: [
-    'src/routeTree.gen.ts',
+    'src/app/routeTree.gen.ts',
     // shadcn on-deck primitives — kept for the next wave of UI work
     'src/components/ui/**',
   ],
@@ -30,10 +37,6 @@ const config: KnipConfig = {
     '@tanstack/react-router-ssr-query',
     // Type-only standard schema spec
     '@standard-schema/spec',
-    // Reserved for Module 2 (AI testing) — will be consumed once test files
-    // exist in src/**/*.test.tsx. Remove from this list at that time.
-    '@testing-library/dom',
-    '@testing-library/react',
   ],
 }
 

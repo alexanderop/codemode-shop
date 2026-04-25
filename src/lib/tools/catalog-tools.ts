@@ -2,15 +2,77 @@ import { z } from 'zod'
 import { toolDefinition } from '@tanstack/ai'
 import {
   PRODUCTS,
+  PRODUCT_BY_ID,
   REVIEWS,
-  STOCK,
-  addToCart as addToCartState,
+  SEARCH_HAYSTACK,
   buildPriceHistory,
-  getCart as getCartState,
+  findStock,
   shippingEtaDays,
 } from '#/lib/catalog'
+import {
+  addToCart as addToCartState,
+  clearCart as clearCartState,
+  getCartDetailed,
+  removeFromCart as removeFromCartState,
+  setCartLineQuantity,
+} from '#/lib/cart'
+import { getOrder as getOrderState, placeOrder as placeOrderState } from '#/lib/orders'
+import { processFakePayment } from '#/lib/payment'
+import { sessionContext, type SessionId } from '#/lib/session-context'
 
 const widthSchema = z.enum(['narrow', 'standard', 'wide'])
+const categories = ['Running', 'Lifestyle', 'Trail', 'Basketball', 'Training', 'Racing'] as const
+const categorySchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return value
+  const normalized = value.toLowerCase()
+  return categories.find((category) => category.toLowerCase() === normalized) ?? value
+}, z.enum(categories))
+const SEARCH_STOP_WORDS = new Set([
+  'shoe',
+  'shoes',
+  'under',
+  'over',
+  'size',
+  'top',
+  'rated',
+  'best',
+  'three',
+  'compare',
+  'with',
+  'and',
+  'for',
+  'the',
+  'that',
+  'are',
+  'in',
+])
+
+function queryTokens(query: unknown): Array<string> {
+  if (typeof query !== 'string' || !query) return []
+  return query
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 2)
+    .filter((token) => !SEARCH_STOP_WORDS.has(token))
+    .filter((token) => !/^\d+$/.test(token))
+}
+
+function normalizeCategory(value: unknown): (typeof categories)[number] | undefined {
+  if (value == null) return undefined
+  const normalized = String(value).toLowerCase()
+  return categories.find((category) => category.toLowerCase() === normalized)
+}
+
+function optionalNumber(value: unknown): number | undefined {
+  if (value == null || value === '') return undefined
+  const n = Number(value)
+  return Number.isFinite(n) ? n : undefined
+}
+
+function optionalString(value: unknown): string | undefined {
+  if (value == null) return undefined
+  return String(value)
+}
 
 export const searchProducts = toolDefinition({
   name: 'searchProducts',
@@ -18,39 +80,51 @@ export const searchProducts = toolDefinition({
     'Search the shoe catalog. All filters are optional and combined (AND). Returns product IDs so you can then fetch details in parallel.',
   inputSchema: z.object({
     query: z.string().optional().describe('Free-text match against name/brand'),
-    category: z
-      .enum(['Running', 'Lifestyle', 'Trail', 'Basketball', 'Training', 'Racing'])
-      .optional(),
+    category: categorySchema.optional(),
     colors: z.array(z.string()).optional().describe('Substring match on color'),
     brand: z.string().optional(),
-    maxPrice: z.number().optional(),
-    minPrice: z.number().optional(),
-    size: z.string().optional().describe('e.g. "10"'),
+    maxPrice: z.coerce.number().optional(),
+    minPrice: z.coerce.number().optional(),
+    size: z.coerce.string().optional().describe('e.g. "10"'),
     width: widthSchema.optional(),
-    limit: z.number().default(10),
+    limit: z.coerce.number().default(10),
   }),
   outputSchema: z.object({
     productIds: z.array(z.string()),
     totalMatches: z.number(),
   }),
 }).server((input) => {
-  const q = input.query?.toLowerCase()
+  const raw = input as Record<string, unknown>
+  const tokens = queryTokens(raw.query)
+  const category = normalizeCategory(raw.category)
+  const maxPrice = optionalNumber(raw.maxPrice)
+  const minPrice = optionalNumber(raw.minPrice)
+  const size = optionalString(raw.size)
+  const limit = optionalNumber(raw.limit) ?? 10
+  const brandLower =
+    typeof raw.brand === 'string' && raw.brand ? raw.brand.toLowerCase() : undefined
+  const colorsLower = Array.isArray(raw.colors)
+    ? raw.colors.map((c) => String(c).toLowerCase())
+    : undefined
   const matches = PRODUCTS.filter((p) => {
-    if (q && !`${p.name} ${p.brand}`.toLowerCase().includes(q)) return false
-    if (input.category && p.category !== input.category) return false
-    if (input.brand && p.brand.toLowerCase() !== input.brand.toLowerCase()) return false
-    if (input.maxPrice != null && p.price > input.maxPrice) return false
-    if (input.minPrice != null && p.price < input.minPrice) return false
-    if (input.size && !p.sizes.includes(input.size)) return false
-    if (input.width && !p.widths.includes(input.width)) return false
-    if (input.colors?.length) {
+    if (tokens.length) {
+      const haystack = SEARCH_HAYSTACK.get(p.id)!
+      if (!tokens.some((token) => haystack.includes(token))) return false
+    }
+    if (category && p.category !== category) return false
+    if (brandLower && p.brand.toLowerCase() !== brandLower) return false
+    if (maxPrice != null && p.price > maxPrice) return false
+    if (minPrice != null && p.price < minPrice) return false
+    if (size && !p.sizes.includes(size)) return false
+    if (raw.width && !p.widths.includes(raw.width as never)) return false
+    if (colorsLower?.length) {
       const colorLower = p.color.toLowerCase()
-      if (!input.colors.some((c) => colorLower.includes(c.toLowerCase()))) return false
+      if (!colorsLower.some((c) => colorLower.includes(c))) return false
     }
     return true
   })
   return {
-    productIds: matches.slice(0, input.limit).map((p) => p.id),
+    productIds: matches.slice(0, limit).map((p) => p.id),
     totalMatches: matches.length,
   }
 })
@@ -73,7 +147,7 @@ export const getProduct = toolDefinition({
     reviewCount: z.number(),
   }),
 }).server(({ id }) => {
-  const p = PRODUCTS.find((x) => x.id === id)
+  const p = PRODUCT_BY_ID.get(id)
   if (!p) throw new Error(`Product not found: ${id}`)
   return p
 })
@@ -84,7 +158,7 @@ export const getStockAndShipping = toolDefinition({
     'Check stock for a specific size+width SKU and compute shipping ETA for a US zip code. arrivesBy is an ISO date.',
   inputSchema: z.object({
     productId: z.string(),
-    size: z.string(),
+    size: z.coerce.string(),
     width: widthSchema.default('standard'),
     zipCode: z.string().describe('5-digit US zip'),
   }),
@@ -95,7 +169,7 @@ export const getStockAndShipping = toolDefinition({
     shippingCost: z.number(),
   }),
 }).server(({ productId, size, width, zipCode }) => {
-  const row = STOCK.find((s) => s.productId === productId && s.size === size && s.width === width)
+  const row = findStock(productId, String(size), width ?? 'standard')
   const quantity = row?.quantity ?? 0
   const days = shippingEtaDays(zipCode)
   const arrival = new Date()
@@ -120,7 +194,7 @@ export const getReviewSummary = toolDefinition({
     commonComplaints: z.array(z.string()),
   }),
 }).server(({ productId }) => {
-  const p = PRODUCTS.find((x) => x.id === productId)
+  const p = PRODUCT_BY_ID.get(productId)
   const r = REVIEWS[productId]
   if (!p || !r) throw new Error(`No reviews for ${productId}`)
   return {
@@ -136,7 +210,7 @@ export const getPriceHistory = toolDefinition({
   description: 'Get daily price history for a product (default last 30 days).',
   inputSchema: z.object({
     productId: z.string(),
-    days: z.number().default(30),
+    days: z.coerce.number().default(30),
   }),
   outputSchema: z.object({
     productId: z.string(),
@@ -146,7 +220,7 @@ export const getPriceHistory = toolDefinition({
     highestPrice: z.number(),
   }),
 }).server(({ productId, days }) => {
-  const points = buildPriceHistory(productId, days)
+  const points = buildPriceHistory(productId, optionalNumber(days) ?? 30)
   const prices = points.map((p) => p.price)
   return {
     productId,
@@ -157,69 +231,39 @@ export const getPriceHistory = toolDefinition({
   }
 })
 
-export const addToCart = toolDefinition({
-  name: 'addToCart',
-  description: 'Add a product to the shopper’s cart. Returns the new cart total.',
-  inputSchema: z.object({
-    productId: z.string(),
-    size: z.string(),
-    width: widthSchema.default('standard'),
-    quantity: z.number().default(1),
-  }),
-  outputSchema: z.object({
-    itemCount: z.number(),
-    lineCount: z.number(),
-  }),
-}).server((input) =>
-  addToCartState({
-    productId: input.productId,
-    size: input.size,
-    width: input.width ?? 'standard',
-    quantity: input.quantity ?? 1,
-  }),
-)
+const shippingAddressSchema = z.object({
+  fullName: z.string(),
+  line1: z.string(),
+  line2: z.string().optional(),
+  city: z.string(),
+  state: z.string(),
+  zipCode: z.string(),
+})
 
-export const getCart = toolDefinition({
-  name: 'getCart',
-  description:
-    "Read the shopper's current cart. Returns one entry per product/size/width line, enriched with name, brand, and unit price, plus subtotal and total item count. Returns empty items if the cart is empty.",
-  inputSchema: z.object({}),
-  outputSchema: z.object({
-    items: z.array(
-      z.object({
-        productId: z.string(),
-        name: z.string(),
-        brand: z.string(),
-        size: z.string(),
-        width: z.string(),
-        quantity: z.number(),
-        unitPrice: z.number(),
-        lineTotal: z.number(),
-      }),
-    ),
-    itemCount: z.number(),
-    subtotal: z.number(),
-  }),
-}).server(() => {
-  const items = getCartState().map((line) => {
-    const p = PRODUCTS.find((x) => x.id === line.productId)
-    const unitPrice = p?.price ?? 0
-    return {
-      productId: line.productId,
-      name: p?.name ?? 'Unknown',
-      brand: p?.brand ?? 'Unknown',
-      size: line.size,
-      width: line.width,
-      quantity: line.quantity,
-      unitPrice,
-      lineTotal: unitPrice * line.quantity,
-    }
-  })
-  return {
-    items,
-    itemCount: items.reduce((n, i) => n + i.quantity, 0),
-    subtotal: items.reduce((n, i) => n + i.lineTotal, 0),
-  }
+const orderLineSchema = z.object({
+  productId: z.string(),
+  name: z.string(),
+  brand: z.string(),
+  size: z.string(),
+  width: z.string(),
+  quantity: z.number(),
+  unitPrice: z.number(),
+  lineTotal: z.number(),
+})
+
+const orderSchema = z.object({
+  id: z.string(),
+  lines: z.array(orderLineSchema),
+  itemCount: z.number(),
+  subtotal: z.number(),
+  shippingCost: z.number(),
+  tax: z.number(),
+  total: z.number(),
+  shippingAddress: shippingAddressSchema,
+  paymentLast4: z.string(),
+  status: z.enum(['placed', 'shipped', 'delivered']),
+  arrivesBy: z.string(),
+  createdAt: z.string(),
 })
 
 export const catalogTools = [
@@ -228,6 +272,142 @@ export const catalogTools = [
   getStockAndShipping,
   getReviewSummary,
   getPriceHistory,
-  addToCart,
-  getCart,
 ]
+
+export function createSessionScopedCatalogTools(sessionId: SessionId) {
+  const inSession = <T>(fn: () => T): T => sessionContext.run({ sessionId }, fn)
+
+  const addToCart = toolDefinition({
+    name: 'addToCart',
+    description: 'Add a product to the shopper’s cart. Returns the new cart total.',
+    inputSchema: z.object({
+      productId: z.string(),
+      size: z.coerce.string(),
+      width: widthSchema.default('standard'),
+      quantity: z.coerce.number().default(1),
+    }),
+    outputSchema: z.object({
+      itemCount: z.number(),
+      lineCount: z.number(),
+    }),
+  }).server((input) =>
+    inSession(() =>
+      addToCartState({
+        productId: input.productId,
+        size: String(input.size),
+        width: input.width ?? 'standard',
+        quantity: optionalNumber(input.quantity) ?? 1,
+      }),
+    ),
+  )
+
+  const getCart = toolDefinition({
+    name: 'getCart',
+    description:
+      "Read the shopper's current cart. Returns one entry per product/size/width line, enriched with name, brand, and unit price, plus subtotal and total item count. Returns empty items if the cart is empty.",
+    inputSchema: z.object({}),
+    outputSchema: z.object({
+      items: z.array(
+        z.object({
+          productId: z.string(),
+          name: z.string(),
+          brand: z.string(),
+          size: z.string(),
+          width: z.string(),
+          quantity: z.number(),
+          unitPrice: z.number(),
+          lineTotal: z.number(),
+        }),
+      ),
+      itemCount: z.number(),
+      subtotal: z.number(),
+    }),
+  }).server(() => inSession(() => getCartDetailed()))
+
+  const removeFromCart = toolDefinition({
+    name: 'removeFromCart',
+    description: 'Remove a single line (productId + size + width) from the cart entirely.',
+    inputSchema: z.object({
+      productId: z.string(),
+      size: z.coerce.string(),
+      width: widthSchema.default('standard'),
+    }),
+    outputSchema: z.object({
+      itemCount: z.number(),
+      lineCount: z.number(),
+    }),
+  }).server(({ productId, size, width }) =>
+    inSession(() =>
+      removeFromCartState({ productId, size: String(size), width: width ?? 'standard' }),
+    ),
+  )
+
+  const setCartQuantity = toolDefinition({
+    name: 'setCartQuantity',
+    description: 'Set the quantity of a cart line. quantity = 0 removes the line.',
+    inputSchema: z.object({
+      productId: z.string(),
+      size: z.coerce.string(),
+      width: widthSchema.default('standard'),
+      quantity: z.coerce.number(),
+    }),
+    outputSchema: z.object({
+      itemCount: z.number(),
+      lineCount: z.number(),
+    }),
+  }).server(({ productId, size, width, quantity }) =>
+    inSession(() =>
+      setCartLineQuantity({
+        productId,
+        size: String(size),
+        width: width ?? 'standard',
+        quantity: optionalNumber(quantity) ?? 0,
+      }),
+    ),
+  )
+
+  const clearCart = toolDefinition({
+    name: 'clearCart',
+    description: 'Empty the cart completely.',
+    inputSchema: z.object({}),
+    outputSchema: z.object({
+      itemCount: z.number(),
+      lineCount: z.number(),
+    }),
+  }).server(() => inSession(() => clearCartState()))
+
+  const placeOrder = toolDefinition({
+    name: 'placeOrder',
+    description:
+      'Run the fake payment processor and place an order with the current cart. Clears the cart on success. Always succeeds for any well-formed card after a ~1.5s simulated delay.',
+    inputSchema: z.object({
+      shippingAddress: shippingAddressSchema,
+      payment: z.object({
+        cardNumber: z.string(),
+        expiry: z.string().describe('MM/YY'),
+        cvc: z.string(),
+      }),
+    }),
+    outputSchema: orderSchema,
+  }).server(async ({ shippingAddress, payment }) => {
+    const cart = inSession(() => getCartDetailed())
+    if (cart.items.length === 0) {
+      throw new Error('Cart is empty')
+    }
+    const result = await processFakePayment({ ...payment, amount: cart.subtotal })
+    return inSession(() => placeOrderState({ shippingAddress, paymentLast4: result.last4 }))
+  })
+
+  const getOrder = toolDefinition({
+    name: 'getOrder',
+    description: 'Fetch a previously placed order by id.',
+    inputSchema: z.object({ id: z.string() }),
+    outputSchema: orderSchema,
+  }).server(({ id }) => {
+    const order = inSession(() => getOrderState(id))
+    if (!order) throw new Error(`Order not found: ${id}`)
+    return order
+  })
+
+  return [addToCart, getCart, removeFromCart, setCartQuantity, clearCart, placeOrder, getOrder]
+}

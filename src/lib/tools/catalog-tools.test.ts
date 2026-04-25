@@ -19,6 +19,36 @@ describe('searchProducts', () => {
     }
   })
 
+  it('matches category words in free-text query', async () => {
+    const out = await searchProducts.execute!({
+      query: 'running',
+      maxPrice: 160,
+      size: '10',
+      limit: 10,
+    })
+    expect(out.productIds.length).toBeGreaterThan(0)
+  })
+
+  it('matches meaningful words in shopper-style free-text query', async () => {
+    const out = await searchProducts.execute!({
+      query: 'Compare the three top-rated running shoes under $160 in size 10',
+      maxPrice: 160,
+      size: '10',
+      limit: 10,
+    })
+    expect(out.productIds.length).toBeGreaterThan(0)
+  })
+
+  it('accepts model-shaped category casing and numeric sizes', async () => {
+    const out = await searchProducts.execute!({
+      category: 'running',
+      maxPrice: '160',
+      size: 10,
+      limit: 10,
+    } as never)
+    expect(out.productIds.length).toBeGreaterThan(0)
+  })
+
   it('returns empty when query matches nothing', async () => {
     const out = await searchProducts.execute!({
       limit: 10,

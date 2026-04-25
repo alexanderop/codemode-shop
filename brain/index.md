@@ -23,6 +23,7 @@
 - [[principles/migrate-callers-then-delete-legacy-apis]]
 - [[principles/never-block-on-the-human]]
 - [[principles/outcome-oriented-execution]]
+- [[principles/prefer-one-source-of-truth]]
 - [[principles/redesign-from-first-principles]]
 - [[principles/serialize-shared-state-mutations]]
 - [[principles/subtract-before-you-add]]

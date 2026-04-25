@@ -1,37 +1,51 @@
 import { ShoppingBag, Sparkles } from 'lucide-react'
-import { Button } from '#/components/ui/button'
-import { Badge } from '#/components/ui/badge'
-import { useCartCount } from '#/lib/client-cart'
+import { Link } from '@tanstack/react-router'
+import { useCartCount } from '#/stores/client-cart'
+import { assistantUi } from '#/stores/assistant-ui'
 
-export function SiteHeader({ onOpenAssistant }: { onOpenAssistant: () => void }) {
+export function SiteHeader() {
   const count = useCartCount()
   return (
-    <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <ShoppingBag className="h-4 w-4" />
+    <header className="glass-header sticky top-0 z-20">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
+        <Link to="/" className="flex items-center gap-2.5">
+          <div className="shadow-brand-glow flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-brand to-brand-deep text-white">
+            <ShoppingBag className="h-3 w-3" strokeWidth={2.4} />
           </div>
-          <div>
-            <div className="font-semibold tracking-tight">codemode.shop</div>
-            <div className="text-xs text-muted-foreground">shoes, but the AI does the work</div>
+          <div className="flex items-baseline gap-2">
+            <div className="text-tag font-semibold tracking-tight text-foreground">
+              codemode.shop
+            </div>
+            <span className="hidden h-3 w-px bg-line-strong sm:inline-block" />
+            <div className="hidden text-xs text-muted-foreground sm:block">
+              shoes, but the AI does the work
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="secondary" className="gap-2" onClick={onOpenAssistant}>
-            <Sparkles className="h-4 w-4" />
-            Ask Storekeeper
-          </Button>
-          <div className="relative">
-            <Button size="icon" variant="ghost" aria-label="Cart">
-              <ShoppingBag className="h-5 w-5" />
-            </Button>
+        </Link>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={assistantUi.open}
+            className="group flex items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-line-strong hover:bg-surface-3"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-brand-glow" strokeWidth={2.2} />
+            <span>Ask Storekeeper</span>
+            <kbd className="ml-1 hidden rounded border border-border bg-surface-3 px-1.5 font-mono text-micro text-fg-subtle sm:inline">
+              ⌘K
+            </kbd>
+          </button>
+          <Link
+            to="/cart"
+            aria-label="Cart"
+            className="relative flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+          >
+            <ShoppingBag className="h-4 w-4" strokeWidth={2} />
             {count > 0 && (
-              <Badge className="pointer-events-none absolute -right-1 -top-1 h-5 min-w-5 rounded-full px-1 text-[10px]">
+              <span className="tabular pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-micro font-semibold text-white">
                 {count}
-              </Badge>
+              </span>
             )}
-          </div>
+          </Link>
         </div>
       </div>
     </header>

@@ -17,3 +17,4 @@ The human supervises asynchronously. Agents must stay unblocked — make reasona
 - **Irreversible actions** (force-push, delete production data, send external messages) still require confirmation
 - **Reversible actions** (write code, edit notes, split tasks) should proceed without blocking
 - **Product direction** comes from the human; _execution_ should not block
+- **Novel architectural / UX decisions with no precedent** — surface 2–3 alternatives first; see [[principles/exhaust-the-design-space]]. Proceed-then-present is for execution, not for committing to a direction nothing in the codebase teaches you.

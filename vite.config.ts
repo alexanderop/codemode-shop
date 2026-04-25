@@ -26,7 +26,13 @@ const config = defineConfig({
     devtools(),
     nitro({ rollupConfig: { external: [/^@sentry\//, 'isolated-vm'] } }),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      router: {
+        entry: 'app/router',
+        routesDirectory: 'app/routes',
+        generatedRouteTree: 'app/routeTree.gen.ts',
+      },
+    }),
     viteReact(),
   ],
 })

@@ -1,24 +1,33 @@
-# Module-cached code mode
+# Module-cached driver
 
-Both `api.storefront-agent.ts` and `api.storefront-handler.ts` define:
+The `isolated-vm` driver is expensive to construct (native probe + setup) and stateless across requests. We cache it in `src/features/storefront/api/driver.ts`:
 
 ```ts
-let codeModeCache: ReturnType<typeof createCodeMode> | null = null
-async function getCodeMode() {
-  if (!codeModeCache) {
-    const { createNodeIsolateDriver } = await import('@tanstack/ai-isolate-node')
-    ...
-    codeModeCache = createCodeMode({ driver, tools: catalogTools, ... })
+const driverCache = new Map<string, Promise<IsolateDriver>>()
+
+export function getStorefrontDriver(opts: { timeout: number; memoryLimit: number }) {
+  const key = `${opts.timeout}:${opts.memoryLimit}`
+  let pending = driverCache.get(key)
+  if (!pending) {
+    pending = (async () => {
+      const { createNodeIsolateDriver } = await import('@tanstack/ai-isolate-node')
+      return createNodeIsolateDriver(opts)
+    })()
+    driverCache.set(key, pending)
   }
-  return codeModeCache
+  return pending
 }
 ```
 
 Two things this is doing:
 
-1. **Lazy `await import`** — `@tanstack/ai-isolate-node` pulls in `isolated-vm` (native addon). Importing it eagerly at module top-level breaks SSR/build environments that don't have the binary. Dynamic import keeps the route tree-shakeable.
-2. **Reuse the driver across requests** — driver creation does the `isolated-vm` probe and other setup. We only pay that once per process. Per-request state stays inside `createContext` (which IS made fresh every `execute_typescript`, see [[architecture/code-mode-execution-pipeline]]).
+1. **Lazy `await import`** — `@tanstack/ai-isolate-node` pulls in `isolated-vm` (native addon). Importing it eagerly at module top-level breaks SSR/build environments without the binary. Dynamic import keeps the route tree-shakeable.
+2. **Reuse the driver across requests** — driver creation does the `isolated-vm` probe and other setup. We pay it once per `(timeout, memoryLimit)` combo per process.
 
-The catalog tools are static and the `getSkillBindings` callback closes over nothing request-specific (UI bindings only need the request when they `emitCustomEvent`, which is wired through `ToolExecutionContext` per-call). So the cache is safe.
+## Code-mode is rebuilt per request, not cached
 
-If we ever need per-request bindings that depend on the Request object (e.g. user-scoped tools), build a new code-mode per request — don't try to leak the request through the cache.
+Unlike the driver, `buildStorefrontCodeMode({ driver, sessionId, timeout })` (in `src/features/storefront/api/code-mode.ts`) runs on every request because `getSkillBindings` closes over `sessionId` to produce session-scoped catalog tools (`createSessionScopedCatalogTools(sessionId)`). Caching the code-mode would leak one session's tools into another. Construction is cheap — just object plumbing — so this isn't a hot path.
+
+If you ever want per-request bindings beyond `sessionId` (e.g. user-scoped tools), keep doing it via the `getSkillBindings` closure. Don't try to leak the request through the driver cache.
+
+See [[architecture/code-mode]] and [[architecture/code-mode-execution-pipeline]].

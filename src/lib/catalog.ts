@@ -35,7 +35,7 @@ export interface PricePoint {
   price: number
 }
 
-const img = (seed: string) => `https://picsum.photos/seed/${encodeURIComponent(seed)}/600/600`
+const img = (id: string) => `/products/${id}.jpg`
 
 export const PRODUCTS: Array<Product> = [
   {
@@ -45,7 +45,7 @@ export const PRODUCTS: Array<Product> = [
     price: 130,
     category: 'Lifestyle',
     color: 'White/Red',
-    imageUrl: img('airmax90'),
+    imageUrl: img('shoe-01'),
     sizes: ['7', '8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.6,
@@ -58,7 +58,7 @@ export const PRODUCTS: Array<Product> = [
     price: 190,
     category: 'Running',
     color: 'Core Black',
-    imageUrl: img('ultraboost22'),
+    imageUrl: img('shoe-02'),
     sizes: ['7', '8', '9', '10', '11', '12', '13', '14'],
     widths: ['standard', 'wide'],
     rating: 4.5,
@@ -71,7 +71,7 @@ export const PRODUCTS: Array<Product> = [
     price: 160,
     category: 'Running',
     color: 'Black/Electric Blue',
-    imageUrl: img('kayano30'),
+    imageUrl: img('shoe-03'),
     sizes: ['8', '9', '10', '11', '12', '13'],
     widths: ['standard', 'wide'],
     rating: 4.7,
@@ -84,7 +84,7 @@ export const PRODUCTS: Array<Product> = [
     price: 165,
     category: 'Running',
     color: 'Navy/Red',
-    imageUrl: img('1080v13'),
+    imageUrl: img('shoe-04'),
     sizes: ['8', '9', '10', '11', '12', '13', '14'],
     widths: ['narrow', 'standard', 'wide'],
     rating: 4.6,
@@ -97,7 +97,7 @@ export const PRODUCTS: Array<Product> = [
     price: 75,
     category: 'Lifestyle',
     color: 'Peacoat/White',
-    imageUrl: img('suedeclassic'),
+    imageUrl: img('shoe-05'),
     sizes: ['7', '8', '9', '10', '11', '12'],
     widths: ['standard'],
     rating: 4.4,
@@ -110,7 +110,7 @@ export const PRODUCTS: Array<Product> = [
     price: 60,
     category: 'Lifestyle',
     color: 'Optical White',
-    imageUrl: img('chucktaylor'),
+    imageUrl: img('shoe-06'),
     sizes: ['6', '7', '8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.5,
@@ -123,7 +123,7 @@ export const PRODUCTS: Array<Product> = [
     price: 70,
     category: 'Lifestyle',
     color: 'Black/White',
-    imageUrl: img('oldskool'),
+    imageUrl: img('shoe-07'),
     sizes: ['6', '7', '8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.6,
@@ -136,7 +136,7 @@ export const PRODUCTS: Array<Product> = [
     price: 140,
     category: 'Running',
     color: 'Volt/Black',
-    imageUrl: img('pegasus41'),
+    imageUrl: img('shoe-08'),
     sizes: ['7', '8', '9', '10', '11', '12', '13', '14', '15'],
     widths: ['standard', 'wide'],
     rating: 4.5,
@@ -149,7 +149,7 @@ export const PRODUCTS: Array<Product> = [
     price: 110,
     category: 'Lifestyle',
     color: 'White/Black/Gum',
-    imageUrl: img('sambaog'),
+    imageUrl: img('shoe-09'),
     sizes: ['7', '8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.7,
@@ -162,7 +162,7 @@ export const PRODUCTS: Array<Product> = [
     price: 120,
     category: 'Lifestyle',
     color: 'White/Clay Canyon',
-    imageUrl: img('gel1130'),
+    imageUrl: img('shoe-10'),
     sizes: ['7', '8', '9', '10', '11', '12'],
     widths: ['standard'],
     rating: 4.4,
@@ -175,7 +175,7 @@ export const PRODUCTS: Array<Product> = [
     price: 145,
     category: 'Running',
     color: 'Black/White',
-    imageUrl: img('clifton9'),
+    imageUrl: img('shoe-11'),
     sizes: ['8', '9', '10', '11', '12', '13', '14'],
     widths: ['standard', 'wide'],
     rating: 4.7,
@@ -188,7 +188,7 @@ export const PRODUCTS: Array<Product> = [
     price: 90,
     category: 'Lifestyle',
     color: 'Red/White',
-    imageUrl: img('speedcat'),
+    imageUrl: img('shoe-12'),
     sizes: ['7', '8', '9', '10', '11', '12'],
     widths: ['standard'],
     rating: 4.3,
@@ -201,7 +201,7 @@ export const PRODUCTS: Array<Product> = [
     price: 200,
     category: 'Lifestyle',
     color: 'Grey',
-    imageUrl: img('990v6'),
+    imageUrl: img('shoe-13'),
     sizes: ['7', '8', '9', '10', '11', '12', '13'],
     widths: ['narrow', 'standard', 'wide'],
     rating: 4.8,
@@ -214,7 +214,7 @@ export const PRODUCTS: Array<Product> = [
     price: 115,
     category: 'Basketball',
     color: 'Chicago',
-    imageUrl: img('aj1low'),
+    imageUrl: img('shoe-14'),
     sizes: ['7', '8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.7,
@@ -227,7 +227,7 @@ export const PRODUCTS: Array<Product> = [
     price: 165,
     category: 'Running',
     color: 'Coastal Sky',
-    imageUrl: img('bondi8'),
+    imageUrl: img('shoe-15'),
     sizes: ['8', '9', '10', '11', '12', '13', '14'],
     widths: ['standard', 'wide'],
     rating: 4.6,
@@ -240,7 +240,7 @@ export const PRODUCTS: Array<Product> = [
     price: 100,
     category: 'Lifestyle',
     color: 'Collegiate Green',
-    imageUrl: img('gazelle'),
+    imageUrl: img('shoe-16'),
     sizes: ['7', '8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.5,
@@ -253,7 +253,7 @@ export const PRODUCTS: Array<Product> = [
     price: 140,
     category: 'Running',
     color: 'Peacoat/Silver',
-    imageUrl: img('ghost16'),
+    imageUrl: img('shoe-17'),
     sizes: ['8', '9', '10', '11', '12', '13', '14'],
     widths: ['narrow', 'standard', 'wide'],
     rating: 4.6,
@@ -266,7 +266,7 @@ export const PRODUCTS: Array<Product> = [
     price: 150,
     category: 'Running',
     color: 'All White',
-    imageUrl: img('cloud5'),
+    imageUrl: img('shoe-18'),
     sizes: ['8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.3,
@@ -279,7 +279,7 @@ export const PRODUCTS: Array<Product> = [
     price: 180,
     category: 'Running',
     color: 'Undyed/Frost',
-    imageUrl: img('cloudmonster2'),
+    imageUrl: img('shoe-19'),
     sizes: ['8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.5,
@@ -292,7 +292,7 @@ export const PRODUCTS: Array<Product> = [
     price: 260,
     category: 'Racing',
     color: 'Volt/Concord',
-    imageUrl: img('alphafly3'),
+    imageUrl: img('shoe-20'),
     sizes: ['7', '8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.7,
@@ -305,7 +305,7 @@ export const PRODUCTS: Array<Product> = [
     price: 170,
     category: 'Racing',
     color: 'Black/Gold',
-    imageUrl: img('endorphinspeed4'),
+    imageUrl: img('shoe-21'),
     sizes: ['8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.6,
@@ -318,7 +318,7 @@ export const PRODUCTS: Array<Product> = [
     price: 160,
     category: 'Running',
     color: 'Moonstone/Mint',
-    imageUrl: img('triumph22'),
+    imageUrl: img('shoe-22'),
     sizes: ['8', '9', '10', '11', '12', '13', '14'],
     widths: ['standard', 'wide'],
     rating: 4.5,
@@ -331,7 +331,7 @@ export const PRODUCTS: Array<Product> = [
     price: 140,
     category: 'Training',
     color: 'Core Black',
-    imageUrl: img('nanox4'),
+    imageUrl: img('shoe-23'),
     sizes: ['7', '8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.4,
@@ -344,7 +344,7 @@ export const PRODUCTS: Array<Product> = [
     price: 140,
     category: 'Running',
     color: 'Silver/Navy',
-    imageUrl: img('waverider27'),
+    imageUrl: img('shoe-24'),
     sizes: ['8', '9', '10', '11', '12', '13', '14'],
     widths: ['standard', 'wide'],
     rating: 4.5,
@@ -357,7 +357,7 @@ export const PRODUCTS: Array<Product> = [
     price: 155,
     category: 'Trail',
     color: 'Olive/Black',
-    imageUrl: img('speedgoat5'),
+    imageUrl: img('shoe-25'),
     sizes: ['8', '9', '10', '11', '12', '13', '14'],
     widths: ['standard', 'wide'],
     rating: 4.7,
@@ -370,7 +370,7 @@ export const PRODUCTS: Array<Product> = [
     price: 140,
     category: 'Trail',
     color: 'Grey/Green',
-    imageUrl: img('terrexswiftr3'),
+    imageUrl: img('shoe-26'),
     sizes: ['8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.4,
@@ -383,7 +383,7 @@ export const PRODUCTS: Array<Product> = [
     price: 140,
     category: 'Trail',
     color: 'Black/Red Dawn',
-    imageUrl: img('hierrov8'),
+    imageUrl: img('shoe-27'),
     sizes: ['8', '9', '10', '11', '12', '13', '14'],
     widths: ['standard', 'wide'],
     rating: 4.5,
@@ -396,7 +396,7 @@ export const PRODUCTS: Array<Product> = [
     price: 150,
     category: 'Basketball',
     color: 'Penny Hardaway',
-    imageUrl: img('kd17'),
+    imageUrl: img('shoe-28'),
     sizes: ['8', '9', '10', '11', '12', '13', '14', '15'],
     widths: ['standard'],
     rating: 4.6,
@@ -409,7 +409,7 @@ export const PRODUCTS: Array<Product> = [
     price: 140,
     category: 'Training',
     color: 'Black/White',
-    imageUrl: img('metcon9'),
+    imageUrl: img('shoe-29'),
     sizes: ['7', '8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.5,
@@ -422,7 +422,7 @@ export const PRODUCTS: Array<Product> = [
     price: 140,
     category: 'Racing',
     color: 'White/Sea Salt',
-    imageUrl: img('rebelv4'),
+    imageUrl: img('shoe-30'),
     sizes: ['8', '9', '10', '11', '12', '13'],
     widths: ['standard'],
     rating: 4.6,
@@ -502,8 +502,22 @@ function buildStock(): Array<StockRow> {
 
 export const STOCK: Array<StockRow> = buildStock()
 
+export const PRODUCT_BY_ID: ReadonlyMap<string, Product> = new Map(PRODUCTS.map((p) => [p.id, p]))
+
+const STOCK_BY_KEY: ReadonlyMap<string, StockRow> = new Map(
+  STOCK.map((s) => [`${s.productId}|${s.size}|${s.width}`, s]),
+)
+
+export const SEARCH_HAYSTACK: ReadonlyMap<string, string> = new Map(
+  PRODUCTS.map((p) => [p.id, `${p.name} ${p.brand} ${p.category} ${p.color}`.toLowerCase()]),
+)
+
+export function findStock(productId: string, size: string, width: Width): StockRow | undefined {
+  return STOCK_BY_KEY.get(`${productId}|${size}|${width}`)
+}
+
 export function buildPriceHistory(productId: string, days = 30): Array<PricePoint> {
-  const product = PRODUCTS.find((p) => p.id === productId)
+  const product = PRODUCT_BY_ID.get(productId)
   if (!product) return []
   const today = new Date()
   const out: Array<PricePoint> = []
@@ -532,36 +546,4 @@ export function shippingEtaDays(zipCode: string): number {
   if (first <= 5) return 3
   if (first <= 7) return 2
   return 4
-}
-
-const cart = new Map<string, { productId: string; size: string; width: Width; quantity: number }>()
-
-function cartKey(productId: string, size: string, width: Width) {
-  return `${productId}|${size}|${width}`
-}
-
-export function addToCart(args: {
-  productId: string
-  size: string
-  width: Width
-  quantity: number
-}) {
-  const key = cartKey(args.productId, args.size, args.width)
-  const existing = cart.get(key)
-  if (existing) {
-    existing.quantity += args.quantity
-  } else {
-    cart.set(key, { ...args })
-  }
-  return { itemCount: totalCartCount(), lineCount: cart.size }
-}
-
-export function getCart() {
-  return Array.from(cart.values())
-}
-
-export function totalCartCount() {
-  let n = 0
-  for (const line of cart.values()) n += line.quantity
-  return n
 }

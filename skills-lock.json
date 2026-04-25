@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "good-docs-writer": {
+      "source": "alexanderop/good-docs-writer",
+      "sourceType": "github",
+      "computedHash": "b1ee2fb945576a7c2fcbf1450e80853221fcd1ed6d302e699300d56800954f51"
+    },
+    "walkthrough": {
+      "source": "alexanderop/walkthrough",
+      "sourceType": "github",
+      "computedHash": "3d5d97121c2e10023d772871acca0fda89e334937b56729bed0d4f958bec2ea8"
+    }
+  }
+}

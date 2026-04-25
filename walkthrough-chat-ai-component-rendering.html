@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en" style="color-scheme: dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat AI Component Rendering — Walkthrough</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+    ></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              wt: {
+                bg: '#000000',
+                surface: '#0a0a0a',
+                raised: '#141414',
+                border: '#2a2a2a',
+                fg: '#ffffff',
+                muted: '#a0a0a0',
+                accent: '#a855f7',
+                file: '#c084fc',
+                red: '#ef4444',
+              },
+            },
+          },
+        },
+      }
+    </script>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+
+      .step-body p {
+        color: #a0a0a0;
+        font-size: 0.95rem;
+        line-height: 1.7;
+        margin-bottom: 14px;
+      }
+      .step-body p code {
+        background: rgba(168, 85, 247, 0.12);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-family: 'SF Mono', 'Fira Code', monospace;
+        font-size: 0.85rem;
+        color: #c084fc;
+      }
+      .step-body .shiki,
+      .step-body pre.code-fallback {
+        background: #000000 !important;
+        border: 1px solid #2a2a2a;
+        border-radius: 10px;
+        padding: 18px 20px;
+        overflow-x: auto;
+        margin: 0;
+      }
+      .step-body .shiki code,
+      .step-body pre.code-fallback code {
+        font-family: 'SF Mono', 'Fira Code', monospace;
+        font-size: 0.82rem;
+        line-height: 1.65;
+        background: none;
+        padding: 0;
+        border-radius: 0;
+      }
+      .step-body .shiki code {
+        color: inherit;
+      }
+      .step-body pre.code-fallback code {
+        color: #e0e0e0;
+      }
+
+      /* Vertical timeline rail */
+      .rail::before {
+        content: '';
+        position: absolute;
+        left: 27px;
+        top: 56px;
+        bottom: -56px;
+        width: 2px;
+        background: linear-gradient(to bottom, #a855f7 0%, #2a2a2a 100%);
+        opacity: 0.5;
+      }
+      .rail:last-child::before {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="bg-wt-bg text-wt-fg">
+    <div id="root"></div>
+
+    <script type="module">
+      import { createHighlighter } from 'https://cdn.jsdelivr.net/npm/shiki@3.22.0/+esm'
+      const { useState, useEffect } = React
+
+      const TITLE = 'Chat AI Component Rendering'
+      const SUBTITLE = 'One real message, traced from keystroke to <LiveProductCard />'
+
+      const TLDR =
+        'Instead of issuing N tool calls, the AI writes one TypeScript program per chat turn. That program runs in a sandboxed Node isolate where ui_* functions are mounted as globals. Every ui_* call streams an SSE event back to the browser, which dispatches it into a node-tree store and re-renders the canvas — live, while the model is still typing.'
+
+      const STEPS = [
+        {
+          kind: 'HTTP REQUEST',
+          title: '1 · User types a message',
+          description:
+            "The shopper types in the chat drawer. The useChat hook batches the message into the conversation and POSTs it to the storefront-agent endpoint, along with the shopper's zipCode as opaque metadata.",
+          files: [
+            'src/features/storefront/components/storekeeper-drawer.tsx',
+            'src/app/routes/api.storefront-agent.ts',
+          ],
+          lang: 'json',
+          code: `POST /api/storefront-agent
+
+{
+  "messages": [
+    {
+      "role": "user",
+      "parts": [{ "type": "text", "text": "show me an espresso machine under $300" }]
+    }
+  ],
+  "data": { "zipCode": "94110" }
+}`,
+        },
+        {
+          kind: 'AGENT WIRING',
+          title: '2 · The server assembles an agent',
+          description:
+            'The endpoint wires up four pieces: the Anthropic adapter, the conversation history, the code-mode tool (with our ui_* and external_* bindings attached), and four system prompts. The chat() loop is what drives the back-and-forth between model and sandbox.',
+          files: ['src/app/routes/api.storefront-agent.ts'],
+          lang: 'typescript',
+          code: `const codeMode = await getCodeMode()  // mounts ui_* + external_* bindings
+
+const stream = chat({
+  adapter: anthropicText({ apiKey: env.ANTHROPIC_API_KEY }),
+  messages,
+  tools: [codeMode.tool],          // ← single tool: execute_typescript
+  systemPrompts: [
+    STOREFRONT_PROMPT,             // shopkeeper persona + house rules
+    codeMode.systemPrompt,         // "you write TS; here's how"
+    createStorefrontUIPrompt({ zipCode }),  // documents every ui_* function
+  ],
+})
+return new Response(toServerSentEventsStream(stream, abortController))`,
+        },
+        {
+          kind: 'TYPESCRIPT PROGRAM',
+          title: '3 · The model writes one program',
+          description:
+            'Instead of N tool calls and N round-trips, the model returns a single execute_typescript call whose argument is a self-contained program. The loading → search → remove → render pattern is encoded in the UI prompt declarations, so the model knows the shape.',
+          files: [
+            'src/features/storefront/api/ui-prompt.ts',
+            'src/features/storefront/api/ui-registry.ts',
+          ],
+          lang: 'typescript',
+          code: `// The model's response: execute_typescript({ typescriptCode: ... })
+
+const loaderId = await ui_addLoading({ message: 'Searching espresso machines…' })
+
+const products = await external_searchProducts({
+  query: 'espresso machine',
+  maxPrice: 300,
+})
+
+await ui_remove({ id: loaderId })
+
+for (const p of products.slice(0, 3)) {
+  await ui_addProductCard({
+    productId: p.id, name: p.name, brand: p.brand,
+    price: p.price, imageUrl: p.imageUrl, rating: p.rating,
+  })
+}
+
+return \`Showed \${products.length} options.\``,
+        },
+        {
+          kind: 'SANDBOX EXECUTION',
+          title: '4 · execute_typescript runs the program',
+          description:
+            'The code-mode tool strips TypeScript via esbuild, mounts ui_* and external_* bindings as globals on a fresh Node isolate context, and runs the program inside an async IIFE so top-level await works. Every binding call emits a code_mode:* event.',
+          files: [
+            'src/features/storefront/api/handler-bindings.ts',
+            'node_modules/@tanstack/ai-code-mode/create-code-mode-tool.ts',
+          ],
+          lang: 'typescript',
+          code: `// Inside the Node isolate (isolated-vm), driven by the code-mode tool:
+
+code_mode:execution_started
+  code_mode:external_call    ui_addLoading           → "load_1"
+  code_mode:external_call    external_searchProducts { query, maxPrice: 300 }
+  code_mode:external_result  ← [ p_42, p_77, p_91 ]
+  code_mode:external_call    ui_remove               { id: "load_1" }
+  code_mode:external_call    ui_addProductCard       { productId: "p_42", ... }
+  code_mode:external_call    ui_addProductCard       { productId: "p_77", ... }
+  code_mode:external_call    ui_addProductCard       { productId: "p_91", ... }
+code_mode:execution_finished → { success: true, result: "Showed 3 options." }`,
+        },
+        {
+          kind: 'SSE FRAME ON THE WIRE',
+          title: '5 · Each ui_* call emits an SSE event',
+          description:
+            "Inside the binding, args are validated against the registry's Zod schema and transformed into a typed UIEvent. context.emitCustomEvent('storefront:ui', event) hands it to the chat engine, which wraps it as a 'custom' SSE chunk on the response stream.",
+          files: [
+            'src/features/storefront/api/ui-bindings.ts',
+            'src/features/storefront/api/ui-registry.ts',
+          ],
+          lang: 'json',
+          code: `data: {
+  "type": "custom",
+  "eventType": "storefront:ui",
+  "data": {
+    "op": "add",
+    "id": "p_42",
+    "type": "productCard",
+    "props": {
+      "productId": "p_42",
+      "name": "Breville Bambino",
+      "brand": "Breville",
+      "price": "$299",
+      "imageUrl": "https://…",
+      "rating": 4.7
+    }
+  }
+}`,
+        },
+        {
+          kind: 'STORE DISPATCH',
+          title: '6 · useChat dispatches into uiStore',
+          description:
+            'useChat parses each SSE chunk; CUSTOM chunks fire onCustomEvent. The drawer routes storefront:ui events into uiStore — a useSyncExternalStore-backed reducer that folds the discriminated UIEvent into a Map of nodes plus rootIds.',
+          files: [
+            'src/features/storefront/components/storekeeper-drawer.tsx',
+            'src/features/storefront/stores/ui-store.ts',
+          ],
+          lang: 'typescript',
+          code: `// In the drawer:
+onCustomEvent(eventType, data) {
+  if (eventType === 'storefront:ui') uiStore.dispatch(data as UIEvent)
+}
+
+// uiStore reducer (op: 'add'):
+const nodes = new Map(state.nodes)
+nodes.set('p_42', {
+  id: 'p_42',
+  type: 'productCard',
+  props: { name: 'Breville Bambino', brand: 'Breville', price: '$299', ... },
+  childIds: [],
+})
+return { ...state, nodes, rootIds: [...state.rootIds, 'p_42'], version: v + 1 }`,
+        },
+        {
+          kind: 'REACT RENDER',
+          title: '7 · StorefrontCanvas walks the tree',
+          description:
+            'The version bumps; StorefrontCanvas re-renders via useUIState. renderNode looks each node up by id, recursively renders children, and delegates to the renderer registered for its type — and a real React component mounts in the DOM.',
+          files: [
+            'src/features/storefront/components/storefront-canvas.tsx',
+            'src/features/storefront/components/canvas/render-node.tsx',
+            'src/features/storefront/components/canvas/render-registry.tsx',
+          ],
+          lang: 'tsx',
+          code: `// StorefrontCanvas:
+const state = useUIState()
+const lookup = asLookup(state.nodes)
+return state.rootIds.map((id) => <div key={id}>{renderNode(id, lookup)}</div>)
+
+// renderNode('p_42', lookup):
+const node = lookup.get('p_42')
+const renderer = storefrontUIRenderers[node.type]   // → 'productCard'
+return renderer(node.props, null)
+
+// Which expands to:
+<LiveProductCard props={{
+  productId: 'p_42', name: 'Breville Bambino',
+  brand: 'Breville', price: '$299', imageUrl: '…', rating: 4.7,
+}} />`,
+        },
+      ]
+
+      // ---- Shiki pre-highlight ----
+      const langs = [...new Set(STEPS.map((s) => s.lang).filter(Boolean))]
+      let highlighter = null
+      try {
+        highlighter = await createHighlighter({ themes: ['vitesse-dark'], langs })
+      } catch (e) {
+        console.warn('Shiki failed:', e)
+      }
+      const HIGHLIGHTED = STEPS.map((s) => {
+        if (!highlighter) return null
+        try {
+          return highlighter.codeToHtml(s.code, { lang: s.lang, theme: 'vitesse-dark' })
+        } catch (e) {
+          console.warn(`Highlight failed:`, e)
+          return null
+        }
+      })
+
+      // ---- Components ----
+      function Header() {
+        return React.createElement(
+          'header',
+          { className: 'sticky top-0 z-20 bg-wt-bg/85 backdrop-blur border-b border-wt-border' },
+          React.createElement(
+            'div',
+            { className: 'max-w-3xl mx-auto px-6 py-4' },
+            React.createElement('h1', { className: 'text-lg font-semibold text-wt-fg' }, TITLE),
+            React.createElement('p', { className: 'text-sm text-wt-muted mt-0.5' }, SUBTITLE),
+          ),
+        )
+      }
+
+      function Tldr() {
+        return React.createElement(
+          'section',
+          { className: 'max-w-3xl mx-auto px-6 pt-10 pb-6' },
+          React.createElement(
+            'div',
+            { className: 'rounded-2xl border border-wt-border bg-wt-surface p-6' },
+            React.createElement(
+              'div',
+              {
+                className:
+                  'text-[0.65rem] uppercase tracking-[0.18em] text-wt-accent font-semibold mb-3',
+              },
+              'TL;DR',
+            ),
+            React.createElement(
+              'p',
+              { className: 'text-wt-fg/90 text-[0.95rem] leading-relaxed' },
+              TLDR,
+            ),
+          ),
+        )
+      }
+
+      function Step({ index, step, html }) {
+        const isLast = index === STEPS.length - 1
+        return React.createElement(
+          'article',
+          { className: `rail relative pl-16 pb-14 ${isLast ? 'pb-0' : ''}` },
+          // Number badge (anchored to the rail)
+          React.createElement(
+            'div',
+            {
+              className:
+                'absolute left-0 top-1 w-14 h-14 rounded-full bg-gradient-to-br from-wt-accent to-purple-700 border border-wt-accent/40 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-wt-accent/20',
+            },
+            String(index + 1),
+          ),
+          // Kind pill
+          React.createElement(
+            'div',
+            {
+              className:
+                'inline-block text-[0.62rem] uppercase tracking-[0.18em] font-semibold text-wt-accent bg-wt-accent/10 border border-wt-accent/25 rounded-full px-2.5 py-0.5 mb-2',
+            },
+            step.kind,
+          ),
+          // Title
+          React.createElement(
+            'h2',
+            { className: 'text-xl font-semibold text-wt-fg mb-2' },
+            step.title.replace(/^\d+\s*·\s*/, ''),
+          ),
+          // Description + code
+          React.createElement(
+            'div',
+            { className: 'step-body' },
+            React.createElement('p', null, step.description),
+            html
+              ? React.createElement('div', { dangerouslySetInnerHTML: { __html: html } })
+              : React.createElement(
+                  'pre',
+                  { className: 'code-fallback' },
+                  React.createElement('code', null, step.code),
+                ),
+          ),
+          // Files
+          step.files?.length > 0 &&
+            React.createElement(
+              'div',
+              { className: 'mt-4 pt-3 border-t border-wt-border/60' },
+              React.createElement(
+                'div',
+                {
+                  className:
+                    'text-[0.65rem] uppercase tracking-wider text-wt-muted font-semibold mb-1.5',
+                },
+                'Files',
+              ),
+              React.createElement(
+                'code',
+                { className: 'text-[0.78rem] text-wt-file font-mono leading-relaxed block' },
+                step.files.map((f, i) =>
+                  React.createElement('span', { key: i }, f, React.createElement('br', null)),
+                ),
+              ),
+            ),
+        )
+      }
+
+      function Footer() {
+        return React.createElement(
+          'footer',
+          { className: 'max-w-3xl mx-auto px-6 pt-8 pb-20 text-center' },
+          React.createElement(
+            'p',
+            { className: 'text-sm text-wt-muted' },
+            'That’s the loop. The model writes a program; the program writes the UI.',
+          ),
+        )
+      }
+
+      function App() {
+        return React.createElement(
+          React.Fragment,
+          null,
+          React.createElement(Header),
+          React.createElement(Tldr),
+          React.createElement(
+            'main',
+            { className: 'max-w-3xl mx-auto px-6 pt-4' },
+            STEPS.map((step, i) =>
+              React.createElement(Step, { key: i, index: i, step, html: HIGHLIGHTED[i] }),
+            ),
+          ),
+          React.createElement(Footer),
+        )
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App))
+    </script>
+  </body>
+</html>
