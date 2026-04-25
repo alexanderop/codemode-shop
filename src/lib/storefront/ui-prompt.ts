@@ -1,8 +1,4 @@
-export function createStorefrontUIPrompt({
-  zipCode,
-}: {
-  zipCode: string
-}): string {
+export function createStorefrontUIPrompt({ zipCode }: { zipCode: string }): string {
   const exampleZipCode = JSON.stringify(zipCode)
 
   return `## Render-on-the-fly UI
@@ -82,6 +78,23 @@ declare function ui_addCTA(input: {
   variant?: 'primary' | 'secondary'
 }): Promise<{ ok: boolean }>
 
+declare function ui_addCartSummary(input: {
+  id: string
+  parentId?: string
+  items: Array<{
+    productId: string
+    name: string
+    brand: string
+    size: string
+    width: string
+    quantity: number
+    unitPrice: number
+    lineTotal: number
+  }>
+  itemCount: number
+  subtotal: number
+}): Promise<{ ok: boolean }>
+
 declare function ui_update(input: {
   id: string
   props: Record<string, unknown>
@@ -143,10 +156,25 @@ await ui_addCTA({
 return \`\${best.p.brand} \${best.p.name} — best match at $\${best.p.price}.\`
 \`\`\`
 
+### Cart lookup pattern
+
+When the shopper asks where the cart is, what is in the cart, whether anything
+was added, or asks to see the cart, do not search products. Read the cart and
+render it:
+
+\`\`\`typescript
+const cart = await external_getCart()
+await ui_addCartSummary({ id: 'cart', ...cart })
+return cart.itemCount === 0
+  ? 'Your cart is empty right now.'
+  : \`Your cart has \${cart.itemCount} item(s), subtotal $\${cart.subtotal}.\`
+\`\`\`
+
 ### Rules
 
 - Always \`await\` ui_* calls.
 - Reuse the same \`id\` if you call \`ui_update\` later.
 - Remove loaders before adding results so the canvas stays clean.
+- For cart questions, \`ui_addCartSummary\` is the visual answer. Do not force product cards.
 - The \`ctaButton\`'s \`handlerId\` must be exactly \`"addToCart"\`.`
 }

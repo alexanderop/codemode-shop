@@ -52,6 +52,21 @@ export interface CTAButtonProps {
   variant?: 'primary' | 'secondary'
 }
 
+export interface CartSummaryProps {
+  items: Array<{
+    productId: string
+    name: string
+    brand: string
+    size: string
+    width: string
+    quantity: number
+    unitPrice: number
+    lineTotal: number
+  }>
+  itemCount: number
+  subtotal: number
+}
+
 export interface ComponentPropsByType {
   loading: LoadingProps
   productCard: ProductCardProps
@@ -60,6 +75,7 @@ export interface ComponentPropsByType {
   reviewBar: ReviewBarProps
   comparisonTable: ComparisonTableProps
   ctaButton: CTAButtonProps
+  cartSummary: CartSummaryProps
 }
 
 export type ComponentType = keyof ComponentPropsByType

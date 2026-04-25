@@ -100,6 +100,14 @@ function component<T extends z.ZodRawShape>(
           parentId,
           props: props as unknown as ComponentPropsByType['ctaButton'],
         }
+      case 'cartSummary':
+        return {
+          op: 'add',
+          id,
+          type: 'cartSummary',
+          parentId,
+          props: props as unknown as ComponentPropsByType['cartSummary'],
+        }
     }
   })
 }
@@ -145,7 +153,7 @@ export function createStorefrontUIBindings(): Record<string, ToolBinding> {
 
     ui_addPriceSparkline: component(
       'priceSparkline',
-      "Attach a tiny price-history chart to a product card. Use the output of external_getPriceHistory directly. parentId must be the productCard id.",
+      'Attach a tiny price-history chart to a product card. Use the output of external_getPriceHistory directly. parentId must be the productCard id.',
       'ui_addPriceSparkline',
       {
         points: z.array(z.object({ date: z.string(), price: z.number() })),
@@ -197,6 +205,28 @@ export function createStorefrontUIBindings(): Record<string, ToolBinding> {
           quantity: z.number().optional(),
         }),
         variant: z.enum(['primary', 'secondary']).optional(),
+      },
+    ),
+
+    ui_addCartSummary: component(
+      'cartSummary',
+      "Render the shopper's current cart contents, including empty-cart state, line totals, item count, and subtotal.",
+      'ui_addCartSummary',
+      {
+        items: z.array(
+          z.object({
+            productId: z.string(),
+            name: z.string(),
+            brand: z.string(),
+            size: z.string(),
+            width: z.string(),
+            quantity: z.number(),
+            unitPrice: z.number(),
+            lineTotal: z.number(),
+          }),
+        ),
+        itemCount: z.number(),
+        subtotal: z.number(),
       },
     ),
 

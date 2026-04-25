@@ -6,6 +6,7 @@ import { PriceSparkline } from '#/components/canvas/price-sparkline'
 import { ReviewBar } from '#/components/canvas/review-bar'
 import { ComparisonTable } from '#/components/canvas/comparison-table'
 import { CTAButton } from '#/components/canvas/cta-button'
+import { CartSummary } from '#/components/canvas/cart-summary'
 
 export type NodeLookup = {
   get: (id: string) => UINode | undefined
@@ -19,18 +20,14 @@ export function asLookup(nodes: Map<string, UINode> | Record<string, UINode>): N
 export function renderNode(id: string, lookup: NodeLookup): React.ReactNode {
   const node = lookup.get(id)
   if (!node) return null
-  const children = node.childIds.map((cid) => (
-    <div key={cid}>{renderNode(cid, lookup)}</div>
-  ))
+  const children = node.childIds.map((cid) => <div key={cid}>{renderNode(cid, lookup)}</div>)
 
   switch (node.type) {
     case 'loading':
       return <Loading {...node.props} />
     case 'productCard':
       return (
-        <LiveProductCard props={node.props}>
-          {children.length ? children : null}
-        </LiveProductCard>
+        <LiveProductCard props={node.props}>{children.length ? children : null}</LiveProductCard>
       )
     case 'stockPill':
       return <StockPill {...node.props} />
@@ -42,6 +39,8 @@ export function renderNode(id: string, lookup: NodeLookup): React.ReactNode {
       return <ComparisonTable {...node.props} />
     case 'ctaButton':
       return <CTAButton {...node.props} />
+    case 'cartSummary':
+      return <CartSummary {...node.props} />
     default:
       return null
   }

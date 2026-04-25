@@ -69,13 +69,18 @@ function createNode(event: Extract<UIEvent, { op: 'add' }>): UINode {
         props: event.props,
         childIds: [],
       }
+    case 'cartSummary':
+      return {
+        id: event.id,
+        type: 'cartSummary',
+        parentId: event.parentId,
+        props: event.props,
+        childIds: [],
+      }
   }
 }
 
-function updateNodeProps(
-  node: UINode,
-  props: Record<string, unknown>,
-): UINode {
+function updateNodeProps(node: UINode, props: Record<string, unknown>): UINode {
   switch (node.type) {
     case 'loading':
       return { ...node, props: { ...node.props, ...props } }
@@ -90,6 +95,8 @@ function updateNodeProps(
     case 'comparisonTable':
       return { ...node, props: { ...node.props, ...props } }
     case 'ctaButton':
+      return { ...node, props: { ...node.props, ...props } }
+    case 'cartSummary':
       return { ...node, props: { ...node.props, ...props } }
   }
 }
