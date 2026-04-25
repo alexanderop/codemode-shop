@@ -1,6 +1,6 @@
 import { uiStore } from './ui-store'
 import { clientCart } from '#/lib/client-cart'
-import type { StreamChunk } from '@tanstack/ai'
+import { parseSSEFrames } from './sse-parser'
 import type { UIEvent } from './ui-types'
 
 export interface HandlerRequest {
@@ -56,21 +56,10 @@ export async function runHandler(req: HandlerRequest, signal?: AbortSignal): Pro
     if (done) break
     buffer += decoder.decode(value, { stream: true })
 
-    const frames = buffer.split('\n\n')
-    buffer = frames.pop() ?? ''
+    const parsed = parseSSEFrames(buffer)
+    buffer = parsed.remainder
 
-    for (const frame of frames) {
-      const dataLine = frame.split('\n').find((l) => l.startsWith('data:'))
-      if (!dataLine) continue
-      const json = dataLine.slice(5).trim()
-      if (!json || json === '[DONE]') continue
-      let chunk: StreamChunk
-      try {
-        chunk = JSON.parse(json) as StreamChunk
-      } catch {
-        continue
-      }
-
+    for (const chunk of parsed.frames) {
       switch (chunk.type) {
         case 'CUSTOM':
           if (chunk.name === 'storefront:ui') {
