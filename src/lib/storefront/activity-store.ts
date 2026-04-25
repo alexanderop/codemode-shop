@@ -261,12 +261,6 @@ export function useActivityState() {
   return useSyncExternalStore(activityStore.subscribe, activityStore.get, () => state)
 }
 
-export function useTurn(turnId: string | null | undefined): TurnActivity | null {
-  const s = useActivityState()
-  if (!turnId) return null
-  return s.byTurnId[turnId] ?? null
-}
-
 export function snapshotUIState(state: {
   nodes: Map<string, any>
   rootIds: Array<string>
