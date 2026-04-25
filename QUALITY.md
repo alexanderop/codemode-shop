@@ -1,0 +1,758 @@
+# Quality Gate Setup
+
+This is a one-time setup task to bring `codemode-shop` to a real CI quality bar:
+oxlint + oxfmt + knip + vitest, gated through GitHub Actions, with an autofix
+workflow for the easy stuff.
+
+The end state is modeled on [npmx.dev]'s CI but trimmed to what this project
+actually needs today. **Stay inside the scope listed below.** A "Follow-ups"
+section at the bottom lists the things we've explicitly chosen not to do yet —
+do not pull those forward.
+
+[npmx.dev]: https://github.com/npmx-dev/npmx.dev
+
+---
+
+## Goal
+
+After this work, every PR runs four required checks in parallel:
+
+| Job        | Command           | What it catches                          |
+| ---------- | ----------------- | ---------------------------------------- |
+| `lint`     | `pnpm lint`       | Bad patterns, unused imports, JSX issues |
+| `format`   | `pnpm format:check` | Style drift                            |
+| `types`    | `pnpm typecheck`  | Type errors (strict mode)                |
+| `knip`     | `pnpm knip`       | Dead code, unused deps, unused exports   |
+| `test`     | `pnpm test`       | Unit tests (vitest)                      |
+
+Plus a separate `autofix.yml` that runs `lint --fix` + `format` and
+auto-commits to PR branches.
+
+## Out of scope
+
+Do **not** add any of these as part of this task. They're tracked as follow-ups.
+
+- Codecov / coverage upload
+- Playwright / browser tests
+- Lighthouse / a11y audit
+- Chromatic / visual regression
+- Vitest "projects" split (unit / component / browser) — single project is fine
+- Merge queue (`merge_group`) triggers
+- i18n validation (we have no i18n)
+- Renaming `@/*` import aliases (out of scope for this task — both work, codebase already prefers `#/`)
+
+If oxlint flags more than ~50 issues in the existing codebase, **do not fix
+them all in this PR**. File them as a separate cleanup ticket and disable the
+specific rules in `.oxlintrc.json` with a comment so the gate is green for new
+work. Subtraction comes before scaffolding — don't let perfect block the gate
+landing.
+
+## Prereqs
+
+- Node 24 (matches `node -v` on the maintainer's machine: `v24.15.0`)
+- pnpm 10 (`pnpm -v` should report `>=10.x`)
+- Running `pnpm install` in the repo currently succeeds with no errors
+- `pnpm dev` boots the app at `http://localhost:3000` — confirm before starting
+
+## Plan
+
+Ship as **seven small commits** on a single branch (`chore/quality-gate`).
+Each commit is independently verifiable. Don't squash before review.
+
+1. Pin Node version + add scripts
+2. Add oxlint + config
+3. Add oxfmt + config (formatter)
+4. Add knip + config
+5. Write the first unit test (`ui-store.test.ts`)
+6. Add `.github/workflows/ci.yml`
+7. Add `.github/workflows/autofix.yml`
+
+---
+
+## Step 1 — Pin Node, add scripts
+
+### 1a. Pin Node version
+
+Create `.node-version` at repo root with a single line:
+
+```
+24
+```
+
+Add an `engines` field to `package.json`:
+
+```json
+{
+  "engines": {
+    "node": ">=24"
+  }
+}
+```
+
+### 1b. Add scripts
+
+In `package.json`, replace the `scripts` block with:
+
+```json
+"scripts": {
+  "dev": "vite dev --port 3000",
+  "build": "vite build",
+  "preview": "vite preview",
+  "test": "vitest run",
+  "typecheck": "tsc --noEmit",
+  "lint": "oxlint",
+  "lint:fix": "oxlint --fix",
+  "format": "oxfmt",
+  "format:check": "oxfmt --check",
+  "knip": "knip"
+}
+```
+
+> **Note**: `oxfmt` and `knip` won't exist as binaries until Steps 3 and 4.
+> That's fine — finish Step 1 by committing scripts and `.node-version`,
+> then move on. Run `pnpm typecheck` to verify it works (it should pass with
+> zero output).
+
+**Verify**:
+
+```sh
+pnpm typecheck   # exits 0
+node -v          # v24.x
+```
+
+**Commit**: `chore: pin node 24, add quality scripts`
+
+---
+
+## Step 2 — oxlint
+
+### 2a. Install
+
+```sh
+pnpm add -D oxlint
+```
+
+### 2b. Scaffold config
+
+```sh
+pnpm dlx oxlint --init
+```
+
+This creates `.oxlintrc.json` with sensible defaults. Then **edit** it to look
+like this (overwrite the generated file if needed):
+
+```json
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "perf": "warn",
+    "suspicious": "warn"
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2024": true
+  },
+  "globals": {
+    "React": "readonly"
+  },
+  "ignorePatterns": [
+    "node_modules",
+    "dist",
+    ".output",
+    ".nitro",
+    ".tanstack",
+    "src/routeTree.gen.ts"
+  ],
+  "rules": {
+    "no-console": "off",
+    "no-unused-vars": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "no-explicit-any": "off"
+      }
+    }
+  ]
+}
+```
+
+Why each setting:
+
+- `no-console: off` — the agent + handler routes log heavily by design (see
+  `code_mode:console` events).
+- `no-unused-vars: off` — we delegate this to `tsc` (`noUnusedLocals` /
+  `noUnusedParameters` already on in `tsconfig.json`), which is more precise.
+- `routeTree.gen.ts` is generated by TanStack Router — never lint it.
+
+### 2c. Run it
+
+```sh
+pnpm lint
+```
+
+Expect either green or a small number of findings.
+
+- **0 findings**: ✅ commit and move on.
+- **1–10 findings**: fix them in this commit if the fixes are obvious; otherwise
+  push them into the rules override (e.g. add `"some-rule": "off"`) and file a
+  follow-up ticket.
+- **>10 findings**: do NOT fix in this PR. Disable the noisy rule(s) in
+  `.oxlintrc.json` with a `// TODO` comment, file a cleanup ticket, move on.
+  The goal of this PR is to land the gate, not clean the codebase.
+
+**Commit**: `chore: add oxlint`
+
+---
+
+## Step 3 — oxfmt (formatter)
+
+oxfmt is the oxc team's formatter. It's young (alpha/early as of writing). If
+something breaks here, you have a documented fallback at the bottom of this
+section.
+
+### 3a. Install
+
+```sh
+pnpm add -D oxfmt
+```
+
+(If the package name differs by the time you read this, check
+<https://github.com/oxc-project/oxc> — adjust the install + script names to
+whatever the README there says, but **do not** add Prettier *in addition* to
+oxfmt. Pick one.)
+
+### 3b. Configure
+
+Create `.oxfmtrc.json` at repo root (or whatever the current oxfmt config file
+name is — check the package README):
+
+```json
+{
+  "ignore": [
+    "node_modules",
+    "dist",
+    ".output",
+    ".nitro",
+    ".tanstack",
+    "pnpm-lock.yaml",
+    "src/routeTree.gen.ts"
+  ]
+}
+```
+
+### 3c. Run it once to format the codebase
+
+```sh
+pnpm format        # writes formatted files
+git diff --stat    # see what changed
+```
+
+Skim the diff. If oxfmt makes large semantic-looking changes (renames,
+reorderings), **stop** and fall back to Prettier (see fallback below). If
+changes look purely cosmetic (whitespace, quotes, trailing commas), commit.
+
+### 3d. Verify
+
+```sh
+pnpm format:check  # exits 0
+```
+
+**Commit**: `chore: format with oxfmt`
+
+### Fallback: Prettier
+
+If oxfmt isn't workable (broken on Tailwind, breaks JSX, alpha bugs), do this
+instead:
+
+```sh
+pnpm remove oxfmt
+pnpm add -D prettier prettier-plugin-tailwindcss
+```
+
+Replace the `format` / `format:check` scripts with:
+
+```json
+"format": "prettier --write .",
+"format:check": "prettier --check ."
+```
+
+Add `.prettierrc.json`:
+
+```json
+{
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "plugins": ["prettier-plugin-tailwindcss"]
+}
+```
+
+Add `.prettierignore`:
+
+```
+node_modules
+dist
+.output
+.nitro
+.tanstack
+pnpm-lock.yaml
+src/routeTree.gen.ts
+```
+
+The CI workflow in Step 6 runs whichever formatter is wired — no changes
+needed there.
+
+---
+
+## Step 4 — knip
+
+### 4a. Install
+
+```sh
+pnpm add -D knip
+```
+
+### 4b. Configure
+
+Create `knip.config.ts` at repo root:
+
+```ts
+import type { KnipConfig } from 'knip'
+
+const config: KnipConfig = {
+  entry: [
+    'src/router.tsx',
+    'src/routes/**/*.{ts,tsx}',
+    'vite.config.ts',
+  ],
+  project: ['src/**/*.{ts,tsx}'],
+  ignore: ['src/routeTree.gen.ts'],
+  ignoreDependencies: [
+    // Bundled into Vite plugin, knip doesn't trace plugin internals
+    '@tanstack/router-plugin',
+    // pnpm only-built-dependencies — referenced indirectly
+    'esbuild',
+    'isolated-vm',
+    'lightningcss',
+    // Tailwind v4 plugin loads via @tailwindcss/vite, not direct import
+    '@tailwindcss/typography',
+  ],
+}
+
+export default config
+```
+
+### 4c. Run it
+
+```sh
+pnpm knip
+```
+
+Expected output:
+
+- Some `Unused files` flags for `src/components/ui/*` shadcn primitives that
+  aren't used yet — **leave these alone**, they're the on-deck library.
+- Possibly some `Unused exports` in `src/lib/storefront/*`. Triage:
+  - If genuinely unused, delete.
+  - If consumed by the QuickJS isolate (string-keyed access via bindings),
+    add the export name to a per-file `# knip-ignore-export` comment OR
+    move it into the `ignoreExportsUsedInFile` list in `knip.config.ts`.
+- Anything in `routeTree.gen.ts` should already be excluded.
+
+If knip flags >20 things, **don't fix the codebase**. Add the noisy paths to
+the `ignore:` array in `knip.config.ts` with a `// TODO` comment and file a
+cleanup ticket. Goal is gate-landing, not codebase cleanup.
+
+**Verify**:
+
+```sh
+pnpm knip   # exits 0
+```
+
+**Commit**: `chore: add knip`
+
+---
+
+## Step 5 — First unit test
+
+The reducer in `src/lib/storefront/ui-store.ts` is a pure function
+(`applyEvent(state, event) -> state`). It's the highest-leverage test target
+in the codebase: every UI mutation flows through it, and the "five places"
+rule from `CLAUDE.md` makes regressions there expensive.
+
+Create `src/lib/storefront/ui-store.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest'
+import type { UIEvent } from './ui-types'
+
+// Re-import the internal applyEvent by exercising uiStore.dispatch.
+// Note: uiStore is a module-level singleton; tests run in the same vitest
+// worker, so each test must clear() before mutating to avoid bleed.
+import { uiStore } from './ui-store'
+
+function reset() {
+  uiStore.clear()
+}
+
+const addRoot: UIEvent = {
+  op: 'add',
+  id: 'root1',
+  type: 'productCard',
+  parentId: undefined,
+  props: { productId: 'p1', title: 'Test', priceCents: 100 } as never,
+}
+
+const addChild: UIEvent = {
+  op: 'add',
+  id: 'child1',
+  type: 'stockPill',
+  parentId: 'root1',
+  props: { state: 'in_stock' } as never,
+}
+
+describe('uiStore reducer', () => {
+  it('starts empty', () => {
+    reset()
+    const state = uiStore.get()
+    expect(state.nodes.size).toBe(0)
+    expect(state.rootIds).toEqual([])
+  })
+
+  it('add with no parent registers a root id', () => {
+    reset()
+    uiStore.dispatch(addRoot)
+    const state = uiStore.get()
+    expect(state.rootIds).toEqual(['root1'])
+    expect(state.nodes.get('root1')?.type).toBe('productCard')
+  })
+
+  it('add with parent appends to parent.childIds', () => {
+    reset()
+    uiStore.dispatch(addRoot)
+    uiStore.dispatch(addChild)
+    const state = uiStore.get()
+    expect(state.nodes.get('root1')?.childIds).toEqual(['child1'])
+    expect(state.nodes.get('child1')?.parentId).toBe('root1')
+  })
+
+  it('add is idempotent on duplicate child registration', () => {
+    reset()
+    uiStore.dispatch(addRoot)
+    uiStore.dispatch(addChild)
+    uiStore.dispatch(addChild)
+    const state = uiStore.get()
+    expect(state.nodes.get('root1')?.childIds).toEqual(['child1'])
+  })
+
+  it('update merges props', () => {
+    reset()
+    uiStore.dispatch(addRoot)
+    uiStore.dispatch({
+      op: 'update',
+      id: 'root1',
+      props: { title: 'Renamed' } as never,
+    })
+    const state = uiStore.get()
+    expect((state.nodes.get('root1')?.props as { title: string }).title).toBe(
+      'Renamed',
+    )
+  })
+
+  it('remove deletes node and descendants', () => {
+    reset()
+    uiStore.dispatch(addRoot)
+    uiStore.dispatch(addChild)
+    uiStore.dispatch({ op: 'remove', id: 'root1' })
+    const state = uiStore.get()
+    expect(state.nodes.size).toBe(0)
+    expect(state.rootIds).toEqual([])
+  })
+
+  it('clear empties state and bumps version', () => {
+    reset()
+    uiStore.dispatch(addRoot)
+    const v1 = uiStore.get().version
+    uiStore.clear()
+    const v2 = uiStore.get().version
+    expect(uiStore.get().nodes.size).toBe(0)
+    expect(v2).toBeGreaterThan(v1)
+  })
+
+  it('every dispatch increments version', () => {
+    reset()
+    const v0 = uiStore.get().version
+    uiStore.dispatch(addRoot)
+    expect(uiStore.get().version).toBeGreaterThan(v0)
+    uiStore.dispatch({
+      op: 'update',
+      id: 'root1',
+      props: { title: 'x' } as never,
+    })
+    expect(uiStore.get().version).toBeGreaterThan(v0 + 1)
+  })
+})
+```
+
+**Note**: `uiStore` is a module-level singleton. Each `it` calls `reset()` to
+avoid cross-test bleed. If you ever notice flaky behavior, this is the cause.
+
+A vitest config isn't strictly required to start, but the project has
+`@testing-library/react` + `jsdom` in `devDependencies`. Add a minimal
+`vitest.config.ts` so future component tests work:
+
+```ts
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: false,
+  },
+})
+```
+
+**Verify**:
+
+```sh
+pnpm test   # 8 passed
+```
+
+**Commit**: `test: cover ui-store reducer`
+
+---
+
+## Step 6 — CI workflow
+
+Create `.github/workflows/ci.yml`:
+
+```yaml
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: 🔠 Lint
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+
+  format:
+    name: 🎨 Format check
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+
+  types:
+    name: 💪 Type check
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  knip:
+    name: 🧹 Unused code
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm knip
+
+  test:
+    name: 🧪 Tests
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+```
+
+> **About SHA pinning**: every external action is pinned to a SHA with a
+> trailing `# v<version>` comment. This is a supply-chain hardening practice
+> copied from npmx.dev. **Never** unpin to a tag (`@v4`) or branch (`@main`).
+> When updating an action, get the new SHA from the action's release page and
+> update both the SHA and the version comment in the same commit.
+
+> **ARM runners**: `ubuntu-24.04-arm` is cheaper and faster on GitHub-hosted
+> runners. If a job needs x86 (e.g. native binaries that don't build on ARM),
+> swap that single job to `ubuntu-latest`.
+
+**Verify**:
+
+```sh
+# Run the full local matrix once before pushing:
+pnpm install --frozen-lockfile
+pnpm lint && pnpm format:check && pnpm typecheck && pnpm knip && pnpm test
+```
+
+All five must exit 0 before pushing.
+
+Push the branch, open a PR, and confirm all five jobs run and pass on GitHub
+Actions. **Trust artifacts, not self-reports** — open the Actions tab and
+look at the actual job results, not the local runs.
+
+**Commit**: `ci: gate PRs on lint/format/types/knip/test`
+
+---
+
+## Step 7 — Autofix workflow
+
+This workflow auto-commits formatting and `--fix`-able lint suggestions to PR
+branches. It needs the [autofix.ci](https://autofix.ci) GitHub App installed
+on the repo.
+
+> **Setup blocker**: an admin must install the autofix.ci GitHub App on this
+> repo before this workflow can push commits. If you don't have admin access,
+> commit the workflow file anyway — it'll fail loudly in PRs and the admin
+> can install on demand.
+
+Create `.github/workflows/autofix.yml`:
+
+```yaml
+name: autofix.ci
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  autofix:
+    name: 🤖 Autofix
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint:fix
+      - run: pnpm format
+      - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27 # v1
+```
+
+**Verify** (only possible after the autofix.ci App is installed):
+
+1. Open a PR that intentionally violates a fixable rule (e.g. add inconsistent
+   quotes to a file).
+2. Wait for the autofix workflow to run.
+3. The workflow should push a commit fixing the violation.
+
+**Commit**: `ci: add autofix workflow`
+
+---
+
+## Acceptance checklist
+
+Tick before opening the PR:
+
+- [ ] `.node-version` exists and contains `24`
+- [ ] `package.json` has `engines.node >=24` and the seven scripts above
+- [ ] `pnpm lint` exits 0
+- [ ] `pnpm format:check` exits 0
+- [ ] `pnpm typecheck` exits 0
+- [ ] `pnpm knip` exits 0
+- [ ] `pnpm test` exits 0 with at least 8 tests passing
+- [ ] `.github/workflows/ci.yml` exists and all five jobs are green on the PR
+- [ ] `.github/workflows/autofix.yml` exists (passing or pending App install — note in PR description)
+- [ ] Total diff is roughly: `package.json` + `.node-version` + 4 config files + 1 test file + 2 workflow files. **No** sweeping changes to existing source. If you find yourself editing `src/**` to make tools happy, stop and add an ignore/disable instead.
+- [ ] Each step landed as its own commit. **Do not squash.**
+
+## Don'ts
+
+- ❌ Don't add Codecov, Playwright, Lighthouse, or Chromatic. They're follow-ups.
+- ❌ Don't refactor source code to satisfy linter findings. Disable the rule, file a ticket.
+- ❌ Don't add ESLint. We're picking oxlint *instead* of ESLint, not in addition.
+- ❌ Don't unpin SHAs to floating tags. Ever.
+- ❌ Don't add a vitest "projects" split. Premature for a single test file.
+- ❌ Don't enable `merge_group` triggers — there's no merge queue.
+
+## Follow-ups (separate PRs, separate tickets)
+
+Once the gate is green and merged, these are the next-best investments in
+roughly priority order:
+
+1. **More tests against `src/lib/storefront/*`** — `client-cart.ts`,
+   `activity-store.ts`, `handler-bindings.ts` are all reducer-shaped.
+2. **Component tests for the canvas** — `@testing-library/react` against
+   `render-node.tsx` with each `UINode` type. Catches the "five places" drift.
+3. **Codecov upload** — once we have ≥30 tests, coverage becomes meaningful.
+4. **Playwright** for the SSE round-trip — only end-to-end way to verify
+   `useChat` → `/api/storefront-agent` → QuickJS → `storefront:ui` events
+   actually paint. Highest-fidelity but slowest test; one happy-path test is
+   enough.
+5. **Lighthouse a11y matrix** (dark/light) — gates accessibility regressions.
+6. **Vitest projects split** — `unit` (no jsdom) / `component` (jsdom). Split
+   when test runtime exceeds ~5s.
+7. **Renovate or dependabot** — auto-bump deps + lockfile.
+
+## Why these choices (appendix)
+
+We modeled the gate on [npmx.dev]'s CI but stripped it down. npmx.dev uses
+`vite-plus` (`vp`) — voidzero-dev's wrapper that bundles oxlint + oxfmt +
+vitest behind one CLI. We're not adopting it because (a) it's optimized for
+their Nuxt monorepo layout, (b) we lose nothing by calling oxlint, oxfmt, and
+vitest directly, and (c) one fewer abstraction is one fewer thing to debug.
+The principle is **subtract before you add**.
+
+We're testing the reducer first because `ui-store.applyEvent` is a pure
+function with the highest mutation throughput in the system — every UI event
+from the LLM's program flows through it. The CLAUDE.md "five places" rule is
+exactly the kind of structural drift that tests catch cheaply. **Get data
+structures right; the right structure makes downstream code obvious.**
+
+We're not adding Playwright yet because most of the interesting logic lives
+inside the QuickJS isolate, and a Playwright test that actually exercises the
+isolate requires booting a dev server with `ANTHROPIC_API_KEY` — too much
+infra for too little signal at this stage. Unit tests on the reducer + a
+future component test pair give 80% of the confidence at 10% of the cost.
