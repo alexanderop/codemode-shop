@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Loader2, Plus, Star } from 'lucide-react'
 import { toast } from 'sonner'
-import { clientCart } from '#/stores/client-cart'
+import { useCartMutation } from '#/queries/cart'
 import { errorMessage } from '#/lib/utils'
 import type { Product } from '#/lib/catalog'
 
@@ -17,6 +17,7 @@ function pickDefaultWidth(widths: Product['widths']): Product['widths'][number] 
 export function ProductCard({ product }: { product: Product }) {
   const [state, setState] = useState<'idle' | 'pending' | 'done'>('idle')
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cartMutation = useCartMutation()
 
   useEffect(() => {
     return () => {
@@ -32,7 +33,7 @@ export function ProductCard({ product }: { product: Product }) {
     if (!size) return
     setState('pending')
     try {
-      await clientCart.mutate({
+      await cartMutation.mutateAsync({
         action: 'add',
         productId: product.id,
         size,

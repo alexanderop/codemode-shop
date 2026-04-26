@@ -3,7 +3,7 @@ import { ArrowLeft, ShoppingBag } from 'lucide-react'
 import { Button } from '#/components/ui/button'
 import { SiteHeader } from '#/components/site-header'
 import { CheckoutForm } from '#/features/storefront/components/canvas/checkout-form'
-import { useCart } from '#/stores/client-cart'
+import { useCart } from '#/queries/cart'
 
 export const Route = createFileRoute('/checkout')({ component: CheckoutPage })
 

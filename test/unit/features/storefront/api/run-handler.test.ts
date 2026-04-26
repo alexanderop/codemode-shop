@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventType, type StreamChunk } from '@tanstack/ai'
-import type { DetailedCart } from '#/lib/cart'
+import { QueryClient } from '@tanstack/react-query'
+import type { DetailedCart } from '#/lib/cart-mutation'
 import { uiStore } from '#/features/storefront/stores/ui-store'
-import { clientCart } from '#/stores/client-cart'
+import { cartQueryKey } from '#/queries/cart'
 import { runHandler, type HandlerRequest } from '#/features/storefront/api/run-handler'
 
 const REQ: HandlerRequest = {
@@ -25,12 +26,6 @@ const CART_AFTER_ADD: DetailedCart = {
       lineTotal: 100,
     },
   ],
-  itemCount: 1,
-  subtotal: 100,
-}
-
-const REFRESHED_CART: DetailedCart = {
-  items: CART_AFTER_ADD.items,
   itemCount: 1,
   subtotal: 100,
 }
@@ -77,11 +72,22 @@ function installFetch(routes: Routes) {
   return mock
 }
 
+function makeClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0, staleTime: 0 },
+      mutations: { retry: false },
+    },
+  })
+}
+
 describe('runHandler', () => {
   let originalFetch: typeof fetch
+  let queryClient: QueryClient
 
   beforeEach(() => {
     originalFetch = globalThis.fetch
+    queryClient = makeClient()
   })
 
   afterEach(() => {
@@ -110,12 +116,12 @@ describe('runHandler', () => {
         ]),
     })
 
-    await runHandler(REQ)
+    await runHandler(REQ, queryClient)
 
     expect(uiStore.get().nodes.has('cta-1')).toBe(true)
   })
 
-  it('should set clientCart from cart:update frames and skip the refresh fetch', async () => {
+  it('should set the cart cache from cart:update frames and skip the refresh fetch', async () => {
     const fetchMock = installFetch({
       handler: () =>
         streamingResponse([
@@ -124,15 +130,15 @@ describe('runHandler', () => {
         ]),
     })
 
-    await runHandler(REQ)
+    await runHandler(REQ, queryClient)
 
-    expect(clientCart.get()).toEqual(CART_AFTER_ADD)
+    expect(queryClient.getQueryData<DetailedCart>(cartQueryKey)).toEqual(CART_AFTER_ADD)
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock).toHaveBeenCalledWith('/api/storefront-handler', expect.anything())
   })
 
-  it('should fall back to GET /api/cart when the stream finishes without cart:update', async () => {
-    const fetchMock = installFetch({
+  it('should invalidate the cart query when the stream finishes without cart:update', async () => {
+    installFetch({
       handler: () =>
         streamingResponse([
           frame({
@@ -146,17 +152,13 @@ describe('runHandler', () => {
           }),
           frame({ type: EventType.TEXT_MESSAGE_CONTENT, messageId: 'm1', delta: 'sorry' }),
         ]),
-      cartGet: () =>
-        new Response(JSON.stringify(REFRESHED_CART), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
     })
 
-    await runHandler(REQ)
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
-    expect(fetchMock).toHaveBeenCalledWith('/api/cart')
-    expect(clientCart.get()).toEqual(REFRESHED_CART)
+    await runHandler(REQ, queryClient)
+
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: cartQueryKey })
   })
 
   it('should accumulate TEXT_MESSAGE_CONTENT deltas and trim the returned string', async () => {
@@ -169,7 +171,7 @@ describe('runHandler', () => {
         ]),
     })
 
-    const text = await runHandler(REQ)
+    const text = await runHandler(REQ, queryClient)
 
     expect(text).toBe('added one item')
   })
@@ -181,9 +183,9 @@ describe('runHandler', () => {
       handler: () => streamingResponse([full.slice(0, cut), full.slice(cut)]),
     })
 
-    await runHandler(REQ)
+    await runHandler(REQ, queryClient)
 
-    expect(clientCart.get()).toEqual(CART_AFTER_ADD)
+    expect(queryClient.getQueryData<DetailedCart>(cartQueryKey)).toEqual(CART_AFTER_ADD)
   })
 
   it('should throw when the response is not OK', async () => {
@@ -191,7 +193,7 @@ describe('runHandler', () => {
       handler: () => new Response('boom', { status: 500 }),
     })
 
-    await expect(runHandler(REQ)).rejects.toThrow(/Handler failed: 500/)
+    await expect(runHandler(REQ, queryClient)).rejects.toThrow(/Handler failed: 500/)
   })
 
   it('should silently skip malformed JSON frames between valid ones', async () => {
@@ -203,8 +205,8 @@ describe('runHandler', () => {
         ]),
     })
 
-    await runHandler(REQ)
+    await runHandler(REQ, queryClient)
 
-    expect(clientCart.get()).toEqual(CART_AFTER_ADD)
+    expect(queryClient.getQueryData<DetailedCart>(cartQueryKey)).toEqual(CART_AFTER_ADD)
   })
 })

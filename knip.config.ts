@@ -32,8 +32,6 @@ const config: KnipConfig = {
     'tailwindcss',
     // CSS-imported animations
     'tw-animate-css',
-    // Auto-loaded by TanStack Start SSR
-    '@tanstack/react-router-ssr-query',
     // Type-only standard schema spec
     '@standard-schema/spec',
   ],

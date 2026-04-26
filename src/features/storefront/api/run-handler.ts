@@ -1,7 +1,8 @@
 import type { StreamChunk } from '@tanstack/ai'
+import type { QueryClient } from '@tanstack/react-query'
 import { uiStore } from '#/features/storefront/stores/ui-store'
-import { clientCart } from '#/stores/client-cart'
-import type { DetailedCart } from '#/lib/cart'
+import { cartQueryKey, invalidateCart } from '#/queries/cart'
+import type { DetailedCart } from '#/lib/cart-mutation'
 import type { Width } from '#/lib/catalog'
 import type { UIEvent } from '#/features/storefront/types/ui-types'
 
@@ -41,7 +42,11 @@ function parseSSEFrames(buffer: string): ParsedSSE {
   return { frames, remainder }
 }
 
-export async function runHandler(req: HandlerRequest, signal?: AbortSignal): Promise<string> {
+export async function runHandler(
+  req: HandlerRequest,
+  queryClient: QueryClient,
+  signal?: AbortSignal,
+): Promise<string> {
   const res = await fetch('/api/storefront-handler', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -90,7 +95,7 @@ export async function runHandler(req: HandlerRequest, signal?: AbortSignal): Pro
           if (chunk.name === 'storefront:ui') {
             uiStore.dispatch(chunk.value as UIEvent)
           } else if (chunk.name === 'cart:update') {
-            clientCart.set(chunk.value as DetailedCart)
+            queryClient.setQueryData<DetailedCart>(cartQueryKey, chunk.value as DetailedCart)
             cartPushed = true
           }
           break
@@ -105,7 +110,7 @@ export async function runHandler(req: HandlerRequest, signal?: AbortSignal): Pro
   /* oxlint-enable no-await-in-loop */
 
   if (!cartPushed) {
-    await clientCart.refresh()
+    await invalidateCart(queryClient)
   }
 
   return assistantText.trim()

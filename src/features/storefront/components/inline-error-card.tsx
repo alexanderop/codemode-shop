@@ -1,5 +1,6 @@
 import { AlertCircle } from 'lucide-react'
 import { Button } from '#/components/ui/button'
+import { Kbd } from '#/components/ui/kbd'
 
 export function InlineErrorCard({
   title,
@@ -32,10 +33,11 @@ export function InlineErrorCard({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-7 border-red-500/40 bg-background text-xs"
+                className="h-7 gap-1.5 border-red-500/40 bg-background text-xs"
                 onClick={onRetry}
               >
                 Retry
+                <Kbd>R</Kbd>
               </Button>
             )}
             {onAskDifferently && (

@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { useChat, fetchServerSentEvents } from '@tanstack/ai-react'
 import { parsePartialJSON } from '@tanstack/ai'
 import { ComarkClient } from '@comark/react'
+import { useHotkey } from '@tanstack/react-hotkeys'
 import {
   Sheet,
   SheetContent,
@@ -13,15 +14,17 @@ import {
 } from '#/components/ui/sheet'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
+import { Kbd } from '#/components/ui/kbd'
 import { cn } from '#/lib/utils'
 import { StorefrontCanvas } from '#/features/storefront/components/storefront-canvas'
 import { FrozenCanvas } from '#/features/storefront/components/frozen-canvas'
 import { ProgramCard, PriorAttemptChip } from '#/features/storefront/components/program-card'
 import { InlineErrorCard } from '#/features/storefront/components/inline-error-card'
 import { SystemPromptSheet } from '#/features/storefront/components/system-prompt-sheet'
+import { useQueryClient } from '@tanstack/react-query'
 import { canvasCallbacks } from '#/features/storefront/components/canvas/canvas-callbacks'
 import { uiStore } from '#/features/storefront/stores/ui-store'
-import { clientCart } from '#/stores/client-cart'
+import { invalidateCart } from '#/queries/cart'
 import {
   activityStore,
   snapshotUIState,
@@ -119,6 +122,7 @@ export function StorekeeperDrawer({
   const lastPromptRef = useRef<string>('')
   const turnIdsRef = useRef<Array<string>>([])
   const inputRef = useRef<HTMLInputElement>(null)
+  const queryClient = useQueryClient()
 
   const { messages, sendMessage, isLoading, stop } = useChat({
     connection: fetchServerSentEvents('/api/storefront-agent'),
@@ -135,9 +139,9 @@ export function StorekeeperDrawer({
       if (currentTid) {
         const turn = activityStore.get().byTurnId[currentTid]
         activityStore.endTurn(currentTid, snapshotUIState(uiStore.get()))
-        if (turn && turnTouchedCart(turn)) void clientCart.refresh()
+        if (turn && turnTouchedCart(turn)) void invalidateCart(queryClient)
       } else {
-        void clientCart.refresh()
+        void invalidateCart(queryClient)
       }
       inputRef.current?.focus()
     },
@@ -237,6 +241,22 @@ export function StorekeeperDrawer({
     await launch(lastPromptRef.current)
   }
 
+  useHotkey('/', () => inputRef.current?.focus(), { enabled: open && !isLoading })
+  useHotkey('Escape', () => stop(), { enabled: open && isLoading })
+  useHotkey('R', () => void handleRetry(), {
+    enabled: open && !isLoading && !!lastPromptRef.current,
+  })
+  useHotkey('P', () => setPromptOpen(true), { enabled: open && !promptOpen })
+  useHotkey('1', () => void launch(STARTER_PROMPTS[0]), {
+    enabled: open && !isLoading && typedMessages.length === 0,
+  })
+  useHotkey('2', () => void launch(STARTER_PROMPTS[1]), {
+    enabled: open && !isLoading && typedMessages.length === 0,
+  })
+  useHotkey('3', () => void launch(STARTER_PROMPTS[2]), {
+    enabled: open && !isLoading && typedMessages.length === 0,
+  })
+
   const liveTurnId = useMemo(() => {
     const cur = activityState.currentTurnId
     if (!cur) return null
@@ -274,6 +294,7 @@ export function StorekeeperDrawer({
               >
                 <FileText className="h-3.5 w-3.5" />
                 <span>Prompt</span>
+                <Kbd className="ml-0.5">P</Kbd>
               </button>
             </div>
             <SheetDescription>
@@ -294,14 +315,15 @@ export function StorekeeperDrawer({
                 <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
                   <div className="font-medium text-foreground">Try one of these:</div>
                   <div className="mt-2 flex flex-col gap-1.5">
-                    {STARTER_PROMPTS.map((prompt) => (
+                    {STARTER_PROMPTS.map((prompt, i) => (
                       <button
                         key={prompt}
                         type="button"
                         onClick={() => void launch(prompt)}
-                        className="rounded-md border bg-muted/40 px-2.5 py-1.5 text-left text-xs text-foreground transition hover:bg-muted hover:border-primary/40"
+                        className="flex items-center gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5 text-left text-xs text-foreground transition hover:bg-muted hover:border-primary/40"
                       >
-                        {prompt}
+                        <Kbd>{i + 1}</Kbd>
+                        <span className="flex-1">{prompt}</span>
                       </button>
                     ))}
                   </div>
@@ -410,13 +432,20 @@ export function StorekeeperDrawer({
 
           <form onSubmit={handleSend} className="border-t p-4">
             <div className="flex gap-2">
-              <Input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask Storekeeper…"
-                disabled={isLoading}
-              />
+              <div className="relative flex-1">
+                <Input
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask Storekeeper…"
+                  disabled={isLoading}
+                />
+                {!input && !isLoading && (
+                  <Kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+                    /
+                  </Kbd>
+                )}
+              </div>
               {isLoading ? (
                 <Button
                   type="button"
@@ -424,6 +453,7 @@ export function StorekeeperDrawer({
                   variant="secondary"
                   onClick={() => stop()}
                   aria-label="Stop generating"
+                  title="Stop (Esc)"
                 >
                   <Square className="h-4 w-4" />
                 </Button>
@@ -433,6 +463,7 @@ export function StorekeeperDrawer({
                   size="icon"
                   disabled={!input.trim()}
                   aria-label="Send message"
+                  title="Send (Enter)"
                 >
                   <Send className="h-4 w-4" />
                 </Button>

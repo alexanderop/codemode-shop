@@ -1,7 +1,7 @@
-import { render } from 'vitest-browser-react'
 import { CartSummary } from '#/features/storefront/components/canvas/cart-summary'
 import type { CartSummaryProps } from '#/features/storefront/types/ui-types'
 import type { Width } from '#/lib/catalog'
+import { renderWithQuery } from '../with-query'
 
 type Item = CartSummaryProps['items'][number]
 
@@ -26,9 +26,10 @@ export const cartSummaryProps = (overrides?: Partial<CartSummaryProps>): CartSum
 
 export async function renderCartSummary(overrides?: Partial<CartSummaryProps>) {
   const props = cartSummaryProps(overrides)
-  const screen = await render(<CartSummary {...props} />)
+  const { screen, queryClient } = await renderWithQuery(<CartSummary {...props} />)
   return {
     screen,
+    queryClient,
     props,
     decreaseFor: () => screen.getByRole('button', { name: 'Decrease quantity' }),
     increaseFor: () => screen.getByRole('button', { name: 'Increase quantity' }),

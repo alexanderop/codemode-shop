@@ -1,8 +1,10 @@
 import { sessionContext, type SessionId } from '#/lib/session-context'
-import { PRODUCT_BY_ID, type Width } from '#/lib/catalog'
+import type { Width } from '#/lib/catalog'
 import { cartLineKey } from '#/lib/cart-key'
+import { buildDetailedLine, type DetailedCart } from '#/lib/cart-mutation'
 
 export { cartLineKey }
+export type { DetailedCart, DetailedCartLine, CartMutation } from '#/lib/cart-mutation'
 
 type CartLine = { productId: string; size: string; width: Width; quantity: number }
 
@@ -67,41 +69,10 @@ export function clearCart() {
   return { itemCount: 0, lineCount: 0 }
 }
 
-export interface DetailedCartLine {
-  productId: string
-  name: string
-  brand: string
-  imageUrl: string
-  size: string
-  width: Width
-  quantity: number
-  unitPrice: number
-  lineTotal: number
-}
-
-export interface DetailedCart {
-  items: Array<DetailedCartLine>
-  itemCount: number
-  subtotal: number
-}
-
 export function getCartDetailed(): DetailedCart {
-  const cart = getCartForSession()
-  const items: Array<DetailedCartLine> = Array.from(cart.values()).map((line) => {
-    const p = PRODUCT_BY_ID.get(line.productId)
-    const unitPrice = p?.price ?? 0
-    return {
-      productId: line.productId,
-      name: p?.name ?? 'Unknown',
-      brand: p?.brand ?? 'Unknown',
-      imageUrl: p?.imageUrl ?? '',
-      size: line.size,
-      width: line.width,
-      quantity: line.quantity,
-      unitPrice,
-      lineTotal: unitPrice * line.quantity,
-    }
-  })
+  const items = Array.from(getCartForSession().values()).map((line) =>
+    buildDetailedLine(line.productId, line.size, line.width, line.quantity),
+  )
   return {
     items,
     itemCount: items.reduce((n, i) => n + i.quantity, 0),

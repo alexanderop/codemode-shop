@@ -1,6 +1,6 @@
-import { render } from 'vitest-browser-react'
 import { CheckoutForm } from '#/features/storefront/components/canvas/checkout-form'
 import type { CheckoutFormProps } from '#/features/storefront/types/ui-types'
+import { renderWithQuery } from '../with-query'
 
 export const checkoutFormProps = (overrides?: Partial<CheckoutFormProps>): CheckoutFormProps => ({
   subtotal: 139,
@@ -10,9 +10,10 @@ export const checkoutFormProps = (overrides?: Partial<CheckoutFormProps>): Check
 
 export async function renderCheckoutForm(overrides?: Partial<CheckoutFormProps>) {
   const props = checkoutFormProps(overrides)
-  const screen = await render(<CheckoutForm {...props} />)
+  const { screen, queryClient } = await renderWithQuery(<CheckoutForm {...props} />)
   return {
     screen,
+    queryClient,
     props,
     submitButton: () => screen.getByRole('button', { name: /Place order/ }),
   }

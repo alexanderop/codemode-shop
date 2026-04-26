@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { CreditCard, Loader2, MapPin } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { currency } from '#/lib/format'
-import { clientCart } from '#/stores/client-cart'
+import { errorMessage } from '#/lib/utils'
+import { invalidateCart } from '#/queries/cart'
 import type { CheckoutFormProps } from '#/features/storefront/types/ui-types'
 
 interface FormValues {
@@ -36,6 +38,7 @@ export function CheckoutForm(props: CheckoutFormProps) {
   const [values, setValues] = useState<FormValues>(DEMO_VALUES)
   const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   function set<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -70,10 +73,10 @@ export function CheckoutForm(props: CheckoutFormProps) {
         toast.error(data.error ?? 'Checkout failed')
         return
       }
-      void clientCart.refresh()
+      void invalidateCart(queryClient)
       void navigate({ to: '/orders/$orderId', params: { orderId: data.orderId } })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Checkout failed')
+      toast.error(errorMessage(err, 'Checkout failed'))
     } finally {
       setSubmitting(false)
     }

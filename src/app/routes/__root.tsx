@@ -1,16 +1,21 @@
-import { HeadContent, Link, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Link, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
-import { useHotkey } from '@tanstack/react-hotkeys'
+import { ReactQueryDevtoolsPanel } from '@tanstack/react-query-devtools'
+import type { QueryClient } from '@tanstack/react-query'
+import { useHotkey, useHotkeySequence } from '@tanstack/react-hotkeys'
+import { useRouter } from '@tanstack/react-router'
 import { Toaster } from '#/components/ui/sonner'
 import { Button } from '#/components/ui/button'
-import { CartHydrator } from '#/components/cart-hydrator'
 import { StorekeeperDrawer } from '#/features/storefront/components/storekeeper-drawer'
+import { KeyboardCheatsheet } from '#/components/keyboard-cheatsheet'
 import { assistantUi, useAssistantOpen } from '#/stores/assistant-ui'
+import { cheatsheetUi, useCheatsheetOpen } from '#/stores/cheatsheet-ui'
+import { cartQueryOptions } from '#/queries/cart'
 
 import appCss from '#/styles.css?url'
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       {
@@ -31,6 +36,9 @@ export const Route = createRootRoute({
       },
     ],
   }),
+  loader: ({ context }) => {
+    void context.queryClient.prefetchQuery(cartQueryOptions())
+  },
   shellComponent: RootDocument,
   notFoundComponent: NotFound,
 })
@@ -52,8 +60,19 @@ function NotFound() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   const assistantOpen = useAssistantOpen()
+  const cheatsheetOpen = useCheatsheetOpen()
+  const router = useRouter()
   useHotkey('Mod+K', () => {
     assistantUi.toggle()
+  })
+  useHotkey({ key: '/', shift: true }, () => {
+    cheatsheetUi.toggle()
+  })
+  useHotkeySequence(['G', 'H'], () => {
+    void router.navigate({ to: '/' })
+  })
+  useHotkeySequence(['G', 'C'], () => {
+    void router.navigate({ to: '/cart' })
   })
 
   return (
@@ -62,9 +81,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <CartHydrator />
         {children}
         <StorekeeperDrawer open={assistantOpen} onOpenChange={assistantUi.set} />
+        <KeyboardCheatsheet open={cheatsheetOpen} onOpenChange={cheatsheetUi.set} />
         <Toaster richColors position="bottom-right" />
         <TanStackDevtools
           config={{
@@ -74,6 +93,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             {
               name: 'Tanstack Router',
               render: <TanStackRouterDevtoolsPanel />,
+            },
+            {
+              name: 'TanStack Query',
+              render: <ReactQueryDevtoolsPanel />,
             },
           ]}
         />

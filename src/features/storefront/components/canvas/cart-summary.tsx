@@ -5,7 +5,7 @@ import { Button } from '#/components/ui/button'
 import { currency } from '#/lib/format'
 import { errorMessage } from '#/lib/utils'
 import { uiStore } from '#/features/storefront/stores/ui-store'
-import { clientCart } from '#/stores/client-cart'
+import { useCartMutation } from '#/queries/cart'
 import { cartLineKey } from '#/lib/cart-key'
 import type { CartSummaryProps } from '#/features/storefront/types/ui-types'
 
@@ -20,6 +20,7 @@ function mountCheckoutForm(subtotal: number, lineCount: number) {
 
 export function CartSummary(props: CartSummaryProps) {
   const [pendingKey, setPendingKey] = useState<string | null>(null)
+  const cartMutation = useCartMutation()
 
   async function withPending(key: string, fn: () => Promise<unknown>) {
     setPendingKey(key)
@@ -64,7 +65,7 @@ export function CartSummary(props: CartSummaryProps) {
           const isPending = pendingKey === lineKey
           const setQty = (quantity: number) =>
             void withPending(lineKey, () =>
-              clientCart.mutate({
+              cartMutation.mutateAsync({
                 action: 'set',
                 productId: item.productId,
                 size: item.size,
@@ -74,7 +75,7 @@ export function CartSummary(props: CartSummaryProps) {
             )
           const removeLine = () =>
             void withPending(lineKey, () =>
-              clientCart.mutate({
+              cartMutation.mutateAsync({
                 action: 'remove',
                 productId: item.productId,
                 size: item.size,

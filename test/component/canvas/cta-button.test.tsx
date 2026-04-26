@@ -63,7 +63,7 @@ describe('CTAButton', () => {
   })
 
   it('cancelled requests (signal aborted) do not flip state', async () => {
-    runHandlerMock.mockImplementationOnce((_req, signal: AbortSignal) => {
+    runHandlerMock.mockImplementationOnce((_req, _queryClient, signal: AbortSignal) => {
       return new Promise<string>((_resolve, reject) => {
         signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
       })

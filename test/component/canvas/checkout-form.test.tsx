@@ -5,25 +5,21 @@ const toastErrorMock = vi.fn()
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigateMock,
+  notFound: () => new Error('NotFound'),
 }))
 
 vi.mock('sonner', () => ({
   toast: { error: (...args: Array<unknown>) => toastErrorMock(...args) },
 }))
 
-import { clientCart } from '#/stores/client-cart'
 import { renderCheckoutForm } from './checkout-form.page'
-
-let refreshSpy: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   navigateMock.mockReset()
   toastErrorMock.mockReset()
-  refreshSpy = vi.spyOn(clientCart, 'refresh').mockResolvedValue(undefined)
 })
 
 afterEach(() => {
-  refreshSpy.mockRestore()
   vi.unstubAllGlobals()
 })
 
@@ -74,7 +70,6 @@ describe('CheckoutForm', () => {
         params: { orderId: 'ord_42' },
       }),
     )
-    expect(refreshSpy).toHaveBeenCalledTimes(1)
   })
 
   it('toasts the server error message on a non-ok response', async () => {

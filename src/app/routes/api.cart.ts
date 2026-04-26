@@ -7,7 +7,7 @@ import {
   setCartLineQuantity,
 } from '#/lib/cart'
 import { withSession } from '#/lib/session'
-import type { CartMutation } from '#/stores/client-cart'
+import type { CartMutation } from '#/lib/cart-mutation'
 
 function applyMutation(input: CartMutation) {
   if (input.action === 'clear') {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Loader2, ShoppingBag, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '#/components/ui/button'
 import { errorMessage } from '#/lib/utils'
 import { runHandler } from '#/features/storefront/api/run-handler'
@@ -9,6 +10,7 @@ import type { CTAButtonProps } from '#/features/storefront/types/ui-types'
 export function CTAButton(props: CTAButtonProps) {
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const abortRef = useRef<AbortController | null>(null)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     return () => {
@@ -27,6 +29,7 @@ export function CTAButton(props: CTAButtonProps) {
           handlerId: props.handlerId,
           payload: props.payload,
         },
+        queryClient,
         controller.signal,
       )
       if (controller.signal.aborted) return

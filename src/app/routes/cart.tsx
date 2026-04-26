@@ -6,7 +6,7 @@ import { Button } from '#/components/ui/button'
 import { currency } from '#/lib/format'
 import { errorMessage } from '#/lib/utils'
 import { SiteHeader } from '#/components/site-header'
-import { clientCart, useCart } from '#/stores/client-cart'
+import { useCart, useCartMutation } from '#/queries/cart'
 import { assistantUi } from '#/stores/assistant-ui'
 import { cartLineKey } from '#/lib/cart-key'
 
@@ -14,6 +14,7 @@ export const Route = createFileRoute('/cart')({ component: CartPage })
 
 function CartPage() {
   const cart = useCart()
+  const cartMutation = useCartMutation()
   const [pendingKey, setPendingKey] = useState<string | null>(null)
 
   async function withPending(key: string, fn: () => Promise<unknown>) {
@@ -87,7 +88,7 @@ function CartPage() {
                           disabled={isPending}
                           onClick={() =>
                             void withPending(lineKey, () =>
-                              clientCart.mutate({
+                              cartMutation.mutateAsync({
                                 action: 'set',
                                 productId: item.productId,
                                 size: item.size,
@@ -111,7 +112,7 @@ function CartPage() {
                           disabled={isPending}
                           onClick={() =>
                             void withPending(lineKey, () =>
-                              clientCart.mutate({
+                              cartMutation.mutateAsync({
                                 action: 'set',
                                 productId: item.productId,
                                 size: item.size,
@@ -132,7 +133,7 @@ function CartPage() {
                           disabled={isPending}
                           onClick={() =>
                             void withPending(lineKey, () =>
-                              clientCart.mutate({
+                              cartMutation.mutateAsync({
                                 action: 'remove',
                                 productId: item.productId,
                                 size: item.size,

@@ -1,7 +1,8 @@
-import { ShoppingBag, Sparkles } from 'lucide-react'
+import { Keyboard, ShoppingBag, Sparkles } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
-import { useCartCount } from '#/stores/client-cart'
+import { useCartCount } from '#/queries/cart'
 import { assistantUi } from '#/stores/assistant-ui'
+import { cheatsheetUi } from '#/stores/cheatsheet-ui'
 
 export function SiteHeader() {
   const count = useCartCount()
@@ -34,9 +35,19 @@ export function SiteHeader() {
               ⌘K
             </kbd>
           </button>
+          <button
+            type="button"
+            onClick={cheatsheetUi.open}
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+          >
+            <Keyboard className="h-4 w-4" strokeWidth={2} />
+          </button>
           <Link
             to="/cart"
             aria-label="Cart"
+            title="Cart (G then C)"
             className="relative flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-2 hover:text-foreground"
           >
             <ShoppingBag className="h-4 w-4" strokeWidth={2} />
