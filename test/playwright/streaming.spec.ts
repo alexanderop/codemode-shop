@@ -1,43 +1,35 @@
 import { expect, test } from './test-utils'
 
 test.describe('streaming convergence', () => {
-  test('cassette server progressively streams chunks (proves SSE round-trip)', async ({ page }) => {
-    const cassetteUrl = process.env.CASSETTE_SERVER_URL
-    test.skip(!cassetteUrl, 'cassette server not running')
-    if (!cassetteUrl) return
-
+  test('cassette duration and SSE shape reach the browser via MSW handler', async ({ page }) => {
     await page.goto('/')
 
-    // Drive the cassette server directly from the page context to exercise
-    // the streaming path in a real browser fetch implementation.
-    const result = await page.evaluate(async (url: string) => {
-      const res = await fetch(`${url}/api/storefront-agent`, {
+    // `page.route` buffers the MSW response before fulfilling, so we assert
+    // total duration and payload shape rather than incremental arrival.
+    const result = await page.evaluate(async () => {
+      const start = performance.now()
+      const res = await fetch('/api/storefront-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ role: 'user', content: 'go slow please' }],
         }),
       })
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      const arrivals: Array<{ at: number; bytes: number }> = []
-      const start = performance.now()
-
-      /* oxlint-disable no-await-in-loop -- SSE reader is inherently sequential */
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-        const text = decoder.decode(value, { stream: true })
-        arrivals.push({ at: performance.now() - start, bytes: text.length })
+      const text = await res.text()
+      return {
+        status: res.status,
+        contentType: res.headers.get('content-type') ?? '',
+        text,
+        total: performance.now() - start,
       }
-      /* oxlint-enable no-await-in-loop */
-
-      return { arrivals, total: performance.now() - start, status: res.status }
-    }, cassetteUrl)
+    })
 
     expect(result.status).toBe(200)
-    expect(result.arrivals.length).toBeGreaterThanOrEqual(2)
-    // The slow-streaming cassette has ≥800ms of delay across its chunks.
+    expect(result.contentType).toContain('text/event-stream')
+    // The slow-streaming cassette sums to ≥1130ms of inter-chunk delay.
     expect(result.total).toBeGreaterThanOrEqual(700)
+    // The handler emits the slow-streaming chunks plus the [DONE] terminator.
+    expect(result.text).toContain('storefront:ui')
+    expect(result.text).toContain('[DONE]')
   })
 })

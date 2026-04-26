@@ -1,4 +1,5 @@
-import { useSyncExternalStore } from 'react'
+import { createStore } from '@tanstack/store'
+import { useSelector } from '@tanstack/react-store'
 import type { UIEvent, UINode } from '#/features/storefront/types/ui-types'
 
 export interface UIState {
@@ -85,31 +86,16 @@ function collectDescendants(id: string, nodes: Map<string, UINode>): Array<strin
   return out
 }
 
-let state: UIState = emptyState()
-const listeners = new Set<() => void>()
-
-function emit() {
-  for (const l of listeners) l()
-}
+const store = createStore<UIState>(emptyState())
 
 export const uiStore = {
-  get: () => state,
+  get: () => store.state,
   dispatch: (event: UIEvent) => {
-    state = applyEvent(state, event)
-    emit()
+    store.setState((s) => applyEvent(s, event))
   },
-  clear: () => {
-    state = { ...emptyState(), version: state.version + 1 }
-    emit()
-  },
-  subscribe: (l: () => void) => {
-    listeners.add(l)
-    return () => {
-      listeners.delete(l)
-    }
-  },
+  clear: () => uiStore.dispatch({ op: 'clear' }),
 }
 
 export function useUIState() {
-  return useSyncExternalStore(uiStore.subscribe, uiStore.get, () => state)
+  return useSelector(store, (s) => s)
 }

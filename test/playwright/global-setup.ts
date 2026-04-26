@@ -1,18 +1,19 @@
 /**
- * Playwright globalSetup — boots the cassette server so e2e tests can use
- * realistic SSE replay (with timing) for the storefront agent.
+ * Playwright globalSetup — boots an MSW node server so worker processes can
+ * import the same handler module and resolve responses via `getResponse()`.
  *
- * Returns an async teardown function (Playwright's recommended pattern for
- * sharing state with teardown via closure). The server's URL is published via
- * the CASSETTE_SERVER_URL env var so it propagates to worker processes.
+ * `setupServer().listen()` here is mostly ceremony for clean shutdown; the
+ * actual interception runs per-worker inside `setupAgentInterception()` in
+ * `test-utils.ts`, which feeds Playwright's `route.fulfill({ response })`.
  */
-import { startCassetteServer } from '../cassettes/server'
+import { setupServer } from 'msw/node'
+import { handlers } from '../msw/handlers'
 
 export default async function globalSetup() {
-  const server = await startCassetteServer({ port: 0 })
-  process.env.CASSETTE_SERVER_URL = server.url
+  const server = setupServer(...handlers)
+  server.listen({ onUnhandledRequest: 'bypass' })
 
   return async () => {
-    await server.stop()
+    server.close()
   }
 }

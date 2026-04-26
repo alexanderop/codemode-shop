@@ -44,17 +44,16 @@ dirs=$(echo "$disk" | grep '/' | sed 's|/.*||' | sort -u)
     for section in $dirs; do
         files=$(echo "$disk" | grep "^${section}\(/\|$\)" || true)
         [ -z "$files" ] && continue
-        # Capitalize first letter for header
-        header="$(echo "$section" | sed 's/./\U&/')"
-        printf '\n## %s\n' "$header"
+        # Capitalize first letter for header (portable: works on BSD and GNU)
+        header="$(printf '%s' "${section:0:1}" | tr '[:lower:]' '[:upper:]')${section:1}"
+        printf '\n## %s\n\n' "$header"
         echo "$files" | emit_files
     done
 
-    # Standalone files (not in any subdirectory)
-    standalone=$(echo "$disk" | grep -v '/' || true)
+    # Standalone files: top-level .md not already covered by a section
+    standalone=$(echo "$disk" | grep -v '/' | grep -vxF "$dirs" || true)
     if [ -n "$standalone" ]; then
-        printf '\n## Other\n'
+        printf '\n## Other\n\n'
         echo "$standalone" | emit_files
     fi
-    echo ""
 } > "$INDEX"

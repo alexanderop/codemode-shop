@@ -10,7 +10,6 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   timeout: 30_000,
-  globalSetup: './test/playwright/global-setup.ts',
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',

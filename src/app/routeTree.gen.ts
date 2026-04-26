@@ -61,9 +61,9 @@ const ApiCartRoute = ApiCartRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSkillsNameRoute = ApiSkillsNameRouteImport.update({
-  id: '/$name',
-  path: '/$name',
-  getParentRoute: () => ApiSkillsRoute,
+  id: '/api/skills/$name',
+  path: '/api/skills/$name',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOrdersOrderIdRoute = ApiOrdersOrderIdRouteImport.update({
   id: '/api/orders/$orderId',
@@ -157,6 +157,7 @@ export interface RootRouteChildren {
   ApiStorefrontHandlerRoute: typeof ApiStorefrontHandlerRoute
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
   ApiOrdersOrderIdRoute: typeof ApiOrdersOrderIdRoute
+  ApiSkillsNameRoute: typeof ApiSkillsNameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -219,10 +220,10 @@ declare module '@tanstack/react-router' {
     }
     '/api/skills/$name': {
       id: '/api/skills/$name'
-      path: '/$name'
+      path: '/api/skills/$name'
       fullPath: '/api/skills/$name'
       preLoaderRoute: typeof ApiSkillsNameRouteImport
-      parentRoute: typeof ApiSkillsRoute
+      parentRoute: typeof rootRouteImport
     }
     '/api/orders/$orderId': {
       id: '/api/orders/$orderId'
@@ -244,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStorefrontHandlerRoute: ApiStorefrontHandlerRoute,
   OrdersOrderIdRoute: OrdersOrderIdRoute,
   ApiOrdersOrderIdRoute: ApiOrdersOrderIdRoute,
+  ApiSkillsNameRoute: ApiSkillsNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

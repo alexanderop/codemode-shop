@@ -18,9 +18,9 @@ The whole point: **convert silent failures into loud, default-on test failures.*
 - **Module-scoped stores reset between tests.** `uiStore`, `activityStore`, `clientCart`, `assistantUi` all get reset in `beforeEach`. Without this, a singleton's state from an earlier test leaks into the next one.
 - **Coverage meta-tests** (`src/features/storefront/api/coverage.test.ts`) assert every UI primitive and catalog tool has a corresponding test — adding a new tool without a test fails CI.
 
-## Cassette server (`test/server.ts`, `test/cassettes/`)
+## Cassette playback via MSW (`test/msw/handlers.ts`, `test/cassettes/`)
 
-Standalone HTTP server (`startCassetteServer`) replays typed `Cassette` recordings of streaming responses for deterministic SSE/chat tests. Cassettes are TypeScript modules (e.g. `test/happy-search-recommend.ts`, `test/slow-streaming.ts`) — typed shape, not opaque JSON.
+Typed `Cassette` recordings (e.g. `test/cassettes/happy-search-recommend.ts`, `test/cassettes/slow-streaming.ts`) are replayed by an MSW `http.post('/api/storefront-agent', …)` handler that emits a `ReadableStream` of SSE chunks honoring each chunk's `delayMs`. Playwright's `setupAgentInterception()` calls `getResponse(handlers, request)` and pipes the result to `route.fulfill({ … })` — no second HTTP server, no `CASSETTE_SERVER_URL` env. The same handlers are reusable for future Vitest-browser integration via `setupServer()`.
 
 ## DOM tests (Vitest 4 browser mode + POMs)
 
