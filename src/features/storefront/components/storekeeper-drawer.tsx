@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Send, Sparkles, Square } from 'lucide-react'
+import { FileText, Send, Sparkles, Square } from 'lucide-react'
 import { toast } from 'sonner'
 import { useChat, fetchServerSentEvents } from '@tanstack/ai-react'
 import { parsePartialJSON } from '@tanstack/ai'
@@ -18,6 +18,7 @@ import { StorefrontCanvas } from '#/features/storefront/components/storefront-ca
 import { FrozenCanvas } from '#/features/storefront/components/frozen-canvas'
 import { ProgramCard, PriorAttemptChip } from '#/features/storefront/components/program-card'
 import { InlineErrorCard } from '#/features/storefront/components/inline-error-card'
+import { SystemPromptSheet } from '#/features/storefront/components/system-prompt-sheet'
 import { canvasCallbacks } from '#/features/storefront/components/canvas/canvas-callbacks'
 import { uiStore } from '#/features/storefront/stores/ui-store'
 import { clientCart } from '#/stores/client-cart'
@@ -163,6 +164,7 @@ export function StorekeeperDrawer({
     },
   })
   const [input, setInput] = useState('')
+  const [promptOpen, setPromptOpen] = useState(false)
   const activityState = useActivityState()
 
   const typedMessages = messages as unknown as Array<AnyMessage>
@@ -252,175 +254,194 @@ export function StorekeeperDrawer({
   let assistantIdxCursor = -1
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="left"
-        className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
-      >
-        <SheetHeader className="border-b px-5 py-4">
-          <SheetTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-primary" />
-            Storekeeper
-          </SheetTitle>
-          <SheetDescription>
-            Ask for shoes in plain English. Each answer comes from a TypeScript program the model
-            writes and runs in a sandbox — click the program card to see what it did.
-          </SheetDescription>
-        </SheetHeader>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="left"
+          className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+        >
+          <SheetHeader className="border-b px-5 py-4">
+            <div className="flex items-center justify-between gap-2 pr-7">
+              <SheetTitle className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Storekeeper
+              </SheetTitle>
+              <button
+                type="button"
+                onClick={() => setPromptOpen(true)}
+                aria-label="View system prompt"
+                className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>Prompt</span>
+              </button>
+            </div>
+            <SheetDescription>
+              Ask for shoes in plain English. Each answer comes from a TypeScript program the model
+              writes and runs in a sandbox — click the program card to see what it did.
+            </SheetDescription>
+          </SheetHeader>
 
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-          <div
-            className="space-y-3 p-5"
-            role="log"
-            aria-live="polite"
-            aria-atomic="false"
-            aria-label="Conversation with Storekeeper"
-          >
-            {typedMessages.length === 0 && (
-              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                <div className="font-medium text-foreground">Try one of these:</div>
-                <div className="mt-2 flex flex-col gap-1.5">
-                  {STARTER_PROMPTS.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      onClick={() => void launch(prompt)}
-                      className="rounded-md border bg-muted/40 px-2.5 py-1.5 text-left text-xs text-foreground transition hover:bg-muted hover:border-primary/40"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {typedMessages.map((m) => {
-              if (m.role === 'user') {
-                return (
-                  <div
-                    key={m.id}
-                    className="ml-auto max-w-[75%] rounded-2xl bg-primary/15 px-3.5 py-2 text-sm text-foreground"
-                  >
-                    {m.parts.map((p: any, i: number) =>
-                      p.type === 'text' ? (
-                        // oxlint-disable-next-line no-array-index-key
-                        <span key={i}>{p.content}</span>
-                      ) : null,
-                    )}
+          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+            <div
+              className="space-y-3 p-5"
+              role="log"
+              aria-live="polite"
+              aria-atomic="false"
+              aria-label="Conversation with Storekeeper"
+            >
+              {typedMessages.length === 0 && (
+                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                  <div className="font-medium text-foreground">Try one of these:</div>
+                  <div className="mt-2 flex flex-col gap-1.5">
+                    {STARTER_PROMPTS.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        onClick={() => void launch(prompt)}
+                        className="rounded-md border bg-muted/40 px-2.5 py-1.5 text-left text-xs text-foreground transition hover:bg-muted hover:border-primary/40"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
                   </div>
-                )
-              }
-              if (m.role !== 'assistant') return null
-
-              assistantIdxCursor++
-              const tid = assistantTurnIds[assistantIdxCursor] ?? null
-              const nextTid = assistantTurnIds[assistantIdxCursor + 1] ?? null
-              if (tid && nextTid === tid) return null
-
-              const turn = tid ? activityState.byTurnId[tid] : null
-
-              const textParts = m.parts.filter((p: any) => p.type === 'text')
-              const markdown = textParts.map((p: any) => p.content).join('')
-              const isLastAssistant = m === typedMessages[typedMessages.length - 1]
-              const isLiveStream = isLoading && isLastAssistant
-              const terminal = turn?.terminalError
-              const showInlineError =
-                !!terminal &&
-                (terminal.source === 'runtime' ||
-                  terminal.source === 'typescript' ||
-                  terminal.source === 'loop-exhausted')
-
-              const showProgramCard =
-                !!turn &&
-                (turn.turnId === liveTurnId ||
-                  turn.calls.length > 0 ||
-                  !!turn.code ||
-                  turn.codeLength != null ||
-                  !!turn.terminalError)
-
-              return (
-                <div key={m.id} className="mr-auto w-full min-w-0 max-w-[92%] space-y-2">
-                  {turn?.priorAttempts.map((pa, i) => (
-                    <PriorAttemptChip
-                      // oxlint-disable-next-line no-array-index-key
-                      key={i}
-                      index={i}
-                      error={{ name: pa.error.name, message: pa.error.message }}
-                    />
-                  ))}
-                  {showProgramCard && turn && <ProgramCard turn={turn} />}
-                  {textParts.length > 0 && (
-                    <div
-                      className={cn(
-                        'prose prose-sm dark:prose-invert max-w-none rounded-lg bg-muted px-3 py-2 text-sm',
-                        'prose-p:text-foreground prose-strong:text-foreground prose-code:text-foreground',
-                        'prose-a:text-brand-fg prose-a:underline prose-a:decoration-brand-fg/40 prose-a:underline-offset-2 hover:prose-a:decoration-brand-fg',
-                        'prose-ul:my-2 prose-li:my-0.5 prose-li:marker:text-fg-subtle',
-                        isLiveStream &&
-                          "after:ml-[1px] after:inline-block after:h-3 after:w-[2px] after:translate-y-[2px] after:animate-pulse after:bg-primary/70 after:content-['']",
-                      )}
-                    >
-                      <ComarkClient markdown={markdown} streaming={isLiveStream} caret={false} />
-                    </div>
-                  )}
-                  {turn?.canvasSnapshot && turn.canvasSnapshot.rootIds.length > 0 && (
-                    <FrozenCanvas snapshot={turn.canvasSnapshot} />
-                  )}
-                  {isLiveStream && textParts.length === 0 && !showInlineError && <ThinkingDots />}
-                  {showInlineError && terminal && (
-                    <InlineErrorCard
-                      title="Storekeeper couldn't finish this one."
-                      message={
-                        terminal.name ? `${terminal.name}: ${terminal.message}` : terminal.message
-                      }
-                      onRetry={() => void handleRetry()}
-                      onAskDifferently={() => inputRef.current?.focus()}
-                    />
-                  )}
-                </div>
-              )
-            })}
-
-            {liveTurnId &&
-              activityState.byTurnId[liveTurnId] &&
-              !assistantTurnIds.includes(liveTurnId) && (
-                <div className="mr-auto w-full min-w-0 max-w-[92%] space-y-2">
-                  <ThinkingDots />
-                  <ProgramCard turn={activityState.byTurnId[liveTurnId]} />
                 </div>
               )}
 
-            {liveTurnId && <StorefrontCanvas />}
-          </div>
-        </div>
+              {typedMessages.map((m) => {
+                if (m.role === 'user') {
+                  return (
+                    <div
+                      key={m.id}
+                      className="ml-auto max-w-[75%] rounded-2xl bg-primary/15 px-3.5 py-2 text-sm text-foreground"
+                    >
+                      {m.parts.map((p: any, i: number) =>
+                        p.type === 'text' ? (
+                          // oxlint-disable-next-line no-array-index-key
+                          <span key={i}>{p.content}</span>
+                        ) : null,
+                      )}
+                    </div>
+                  )
+                }
+                if (m.role !== 'assistant') return null
 
-        <form onSubmit={handleSend} className="border-t p-4">
-          <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Storekeeper…"
-              disabled={isLoading}
-            />
-            {isLoading ? (
-              <Button
-                type="button"
-                size="icon"
-                variant="secondary"
-                onClick={() => stop()}
-                aria-label="Stop generating"
-              >
-                <Square className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button type="submit" size="icon" disabled={!input.trim()} aria-label="Send message">
-                <Send className="h-4 w-4" />
-              </Button>
-            )}
+                assistantIdxCursor++
+                const tid = assistantTurnIds[assistantIdxCursor] ?? null
+                const nextTid = assistantTurnIds[assistantIdxCursor + 1] ?? null
+                if (tid && nextTid === tid) return null
+
+                const turn = tid ? activityState.byTurnId[tid] : null
+
+                const textParts = m.parts.filter((p: any) => p.type === 'text')
+                const markdown = textParts.map((p: any) => p.content).join('')
+                const isLastAssistant = m === typedMessages[typedMessages.length - 1]
+                const isLiveStream = isLoading && isLastAssistant
+                const terminal = turn?.terminalError
+                const showInlineError =
+                  !!terminal &&
+                  (terminal.source === 'runtime' ||
+                    terminal.source === 'typescript' ||
+                    terminal.source === 'loop-exhausted')
+
+                const showProgramCard =
+                  !!turn &&
+                  (turn.turnId === liveTurnId ||
+                    turn.calls.length > 0 ||
+                    !!turn.code ||
+                    turn.codeLength != null ||
+                    !!turn.terminalError)
+
+                return (
+                  <div key={m.id} className="mr-auto w-full min-w-0 max-w-[92%] space-y-2">
+                    {turn?.priorAttempts.map((pa, i) => (
+                      <PriorAttemptChip
+                        // oxlint-disable-next-line no-array-index-key
+                        key={i}
+                        index={i}
+                        error={{ name: pa.error.name, message: pa.error.message }}
+                      />
+                    ))}
+                    {showProgramCard && turn && <ProgramCard turn={turn} />}
+                    {textParts.length > 0 && (
+                      <div
+                        className={cn(
+                          'prose prose-sm dark:prose-invert max-w-none rounded-lg bg-muted px-3 py-2 text-sm',
+                          'prose-p:text-foreground prose-strong:text-foreground prose-code:text-foreground',
+                          'prose-a:text-brand-fg prose-a:underline prose-a:decoration-brand-fg/40 prose-a:underline-offset-2 hover:prose-a:decoration-brand-fg',
+                          'prose-ul:my-2 prose-li:my-0.5 prose-li:marker:text-fg-subtle',
+                          isLiveStream &&
+                            "after:ml-[1px] after:inline-block after:h-3 after:w-[2px] after:translate-y-[2px] after:animate-pulse after:bg-primary/70 after:content-['']",
+                        )}
+                      >
+                        <ComarkClient markdown={markdown} streaming={isLiveStream} caret={false} />
+                      </div>
+                    )}
+                    {turn?.canvasSnapshot && turn.canvasSnapshot.rootIds.length > 0 && (
+                      <FrozenCanvas snapshot={turn.canvasSnapshot} />
+                    )}
+                    {isLiveStream && textParts.length === 0 && !showInlineError && <ThinkingDots />}
+                    {showInlineError && terminal && (
+                      <InlineErrorCard
+                        title="Storekeeper couldn't finish this one."
+                        message={
+                          terminal.name ? `${terminal.name}: ${terminal.message}` : terminal.message
+                        }
+                        onRetry={() => void handleRetry()}
+                        onAskDifferently={() => inputRef.current?.focus()}
+                      />
+                    )}
+                  </div>
+                )
+              })}
+
+              {liveTurnId &&
+                activityState.byTurnId[liveTurnId] &&
+                !assistantTurnIds.includes(liveTurnId) && (
+                  <div className="mr-auto w-full min-w-0 max-w-[92%] space-y-2">
+                    <ThinkingDots />
+                    <ProgramCard turn={activityState.byTurnId[liveTurnId]} />
+                  </div>
+                )}
+
+              {liveTurnId && <StorefrontCanvas />}
+            </div>
           </div>
-        </form>
-      </SheetContent>
-    </Sheet>
+
+          <form onSubmit={handleSend} className="border-t p-4">
+            <div className="flex gap-2">
+              <Input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask Storekeeper…"
+                disabled={isLoading}
+              />
+              {isLoading ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  onClick={() => stop()}
+                  aria-label="Stop generating"
+                >
+                  <Square className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={!input.trim()}
+                  aria-label="Send message"
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+      <SystemPromptSheet open={promptOpen} onOpenChange={setPromptOpen} zipCode={zipCode} />
+    </>
   )
 }
