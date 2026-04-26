@@ -4,7 +4,35 @@ A tiny shoe store with one big idea: the shopping assistant writes **TypeScript 
 
 Built with TanStack Start, TanStack AI, shadcn/ui, and a QuickJS WASM isolate. The companion project to the blog post _"Code mode, live-rendered: when the LLM writes TypeScript and your UI assembles itself."_
 
-![what this looks like: a shoe grid with a "Storekeeper" drawer that streams product cards, comparison tables, and an "add to cart" CTA as the LLM's code executes]
+![codemode.shop home page — hero "Picked by an AI storekeeper" above a shoe catalog grid](docs/screenshots/01-homepage.png)
+
+## What you'll see
+
+You land on a small storefront with 30 shoes. The header has an **Ask Storekeeper** button (or `⌘K`).
+
+![Catalog grid of running and lifestyle shoes](docs/screenshots/02-catalog.png)
+
+Open the drawer and you get a chat plus three sample prompts:
+
+![Storekeeper drawer with three suggested prompts](docs/screenshots/03-drawer-empty.png)
+
+Type a prompt — say, _"Compare top 2 trail shoes side by side"_ — and the model writes a TypeScript program. A four-stage pipeline shows what's happening: **Write TypeScript → Run sandbox → Fetch data → Render UI → Return answer.**
+
+![Pipeline mid-execution showing the four stages and the live program in the sandbox](docs/screenshots/04-drawer-thinking.png)
+
+While the program runs, UI components stream into the drawer one at a time — product cards, stock pills, review bars, price sparklines:
+
+![Rendered program code and two product cards (Speedgoat 5, Fresh Foam Hierro v8) with stock, reviews, and price sparklines](docs/screenshots/05-drawer-result.png)
+
+…then a side-by-side comparison table and a primary CTA:
+
+![Comparison table across two trail shoes with Top pick badge plus Add to cart CTA](docs/screenshots/06-drawer-comparison.png)
+
+Click the CTA and the cart badge in the header bumps. From there it's a normal storefront — cart and checkout exist so the AI flow has somewhere to land:
+
+![Cart with two line items totalling $270.00](docs/screenshots/07-cart.png)
+
+![Checkout with shipping address fields and a test card](docs/screenshots/08-checkout.png)
 
 ## What "code mode" means here
 
