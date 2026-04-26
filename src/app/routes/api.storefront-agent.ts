@@ -8,6 +8,9 @@ import { buildStorefrontCodeMode } from '#/features/storefront/api/code-mode'
 import { getStorefrontDriver } from '#/features/storefront/api/driver'
 import { withSession } from '#/lib/session'
 import { sessionContext } from '#/lib/session-context'
+import { getSkillStorageForSession } from '#/features/storefront/api/skill-storage'
+import { buildStorefrontSkillTools } from '#/features/storefront/api/skill-to-storefront-tool'
+import { createRegisterSkillTool } from '#/features/storefront/api/register-skill-tool'
 
 const TIMEOUT_MS = 45_000
 
@@ -68,7 +71,52 @@ For any shopping query:
 - Don't invent products, prices, or shipping ETAs — read them from the tools.
 - If a search returns no product IDs, broaden the filters and search once more before rendering. Never build a comparison table or CTA from an empty array.
 - If the query is vague, make a reasonable default (size 10, standard width, shipping to the known zip).
-- NEVER make up a credit card or address. If the shopper hasn't given you payment details, render the checkout form and let them fill it in.`
+- NEVER make up a credit card or address. If the shopper hasn't given you payment details, render the checkout form and let them fill it in.
+
+## Saved shortcuts (skill memoization) — IMPORTANT
+
+Skills are pre-saved TypeScript snippets that handle a recurring catalog query for THIS shopper, without needing \`execute_typescript\`.
+
+**Using existing skills (cheap path):**
+- If a saved skill in the catalog below matches the shopper's request, call it DIRECTLY (it appears as a regular tool whose description starts with [SKILL]).
+- Skills render UI internally — do NOT run \`execute_typescript\` afterwards.
+- Trust the existing skill; do not re-derive what it already does.
+
+**Registering a new skill — DO THIS AFTER EVERY SUCCESSFUL CATALOG QUERY:**
+
+After \`execute_typescript\` completes successfully, you MUST call \`register_skill\` IN THE SAME RESPONSE as your final reply text, UNLESS one of these is true:
+- The query was vague or one-off (e.g. "what's that one shoe?", "tell me a joke")
+- It was a cart/checkout flow (cart queries cannot become skills)
+- A skill with the same name already exists
+- The pattern wouldn't be useful for this shopper a second time
+
+When in doubt, REGISTER. A small library is the goal — better to over-register than miss the chance.
+
+How to construct the skill:
+- \`name\`: snake_case, descriptive (e.g. \`pegasus_size_10_price_check\`, \`top_running_under_160\`).
+- \`description\`: one sentence the shopper would recognize (e.g. "Show Pegasus 41 size 10 with current price + stock").
+- \`code\`: the BODY of the \`execute_typescript\` program you just ran (the part inside the \`typescriptCode\` argument), with concrete shopper constants (brand, size, zip code) baked in. Do NOT keep dynamic input parameters — skills are zero-arg.
+- \`code\` MUST only use \`external_*\` (read-only catalog: searchProducts, getProduct, getStockAndShipping, getReviewSummary, getPriceHistory) and \`ui_*\` calls. NEVER cart/order tools.
+- \`inputSchema\`: \`{"type":"object","properties":{}}\`
+- \`outputSchema\`: a minimal object schema describing your return value.
+- \`usageHints\`: 1–2 short hints describing when this matches.
+
+Call \`register_skill\` ONCE per turn, alongside your final text reply.`
+
+interface SkillCatalogEntry {
+  name: string
+  description: string
+}
+
+function buildSkillCatalogPrompt(skills: ReadonlyArray<SkillCatalogEntry>): string {
+  if (skills.length === 0) return ''
+  const lines = skills.map((s) => `- \`${s.name}\` — ${s.description}`).join('\n')
+  return `## Saved shortcuts available this turn
+
+${lines}
+
+If one of these matches the shopper's request, call it directly instead of \`execute_typescript\`.`
+}
 
 type ChatPostBody = {
   messages: Array<ModelMessage<string>>
@@ -99,16 +147,31 @@ export const Route = createFileRoute('/api/storefront-agent')({
             timeout: TIMEOUT_MS,
           })
 
+          const skillStorage = getSkillStorageForSession(sessionId)
+          const savedSkills = await skillStorage.loadAll()
+          const skillTools = buildStorefrontSkillTools({
+            skills: savedSkills,
+            driver,
+            storage: skillStorage,
+            timeout: TIMEOUT_MS,
+          })
+          const registerTool = createRegisterSkillTool(sessionId)
+
+          const skillCatalog = buildSkillCatalogPrompt(
+            savedSkills.map((s) => ({ name: s.name, description: s.description })),
+          )
+
           const stream = chat({
             adapter,
             messages,
-            tools: [codeMode.tool],
+            tools: [codeMode.tool, registerTool, ...skillTools],
             systemPrompts: [
               STOREFRONT_PROMPT,
               codeMode.systemPrompt,
               createStorefrontUIPrompt({ zipCode }),
+              skillCatalog,
               `Shopper context: zipCode=${zipCode}. Today is ${new Date().toISOString().slice(0, 10)}.`,
-            ],
+            ].filter((s) => s.length > 0),
             agentLoopStrategy: maxIterations(6),
             maxTokens: 4096,
             abortController,

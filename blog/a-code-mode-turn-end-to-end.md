@@ -40,8 +40,9 @@ Before I open files, let me say in plain English what a single shopping turn mus
 6. Stream those events back to the browser as SSE.
 7. Apply each event to a client-side reducer; React re-renders the canvas as the events land.
 8. When the program returns, surface its return value as the assistant's chat reply.
+9. If the pattern looks reusable for this shopper, quietly persist it as a named skill so the next similar turn can skip the LLM altogether.
 
-That's the whole loop. Eight bullets. Here it is on one page:
+That's the whole loop. Nine bullets. Here it is on one page:
 
 ```
   Browser                                Server
@@ -375,6 +376,106 @@ That's a deliberate choice I made after burning a few model dollars on `addToCar
 
 The reverse is also worth noting: the cart UI you see when you ask _"what's in my cart?"_ does go through code mode, because the program needs to call `external_getCart`, then `ui_addCartSummary` with the result, then return a sentence. Same primitives, different cost-benefit.
 
+## Stop 8: The invisible memoization layer (skills)
+
+The first time you ask for "the Nike Pegasus 41 in size 10 with current price," the model writes a 50-line TypeScript program, fans out four catalog calls in parallel, and renders a card, a stock pill, a price sparkline, a review bar, and a CTA. About 18 seconds end-to-end, dominated by the model writing those 50 lines.
+
+The second time you ask the same thing? **3.4 seconds.** No new program. No `execute_typescript` call at all.
+
+That's `@tanstack/ai-code-mode-skills` doing its thing — but I run it in **invisible mode**, which means the user never sees a "save shortcut?" prompt and there's no chip UI. The library compounds silently per shopper.
+
+Here's the loop, redrawn with skills layered in:
+
+```
+  First turn                               Repeat turn
+  ──────────                               ───────────
+
+  user types "find me Pegasus 41 size 10"  user types "show me Pegasus 41 size 10 again"
+            │                                          │
+            ▼                                          ▼
+  execute_typescript(longProgram)        [SKILL] pegasus_41_size_10()
+            │                                          │
+            ▼                                          ▼
+  ~18s  isolate run                       ~3s  isolate run, same code
+            │                                          │
+  model emits register_skill(...)            (no code-writing model call)
+            │                                          │
+  storage.save → .skills/users/<sid>/         return value → SSE
+            │
+  next turn's tool list grows by 1
+```
+
+Three changes to the agent route make this work:
+
+```ts
+const skillStorage = getSkillStorageForSession(sessionId)
+const savedSkills = await skillStorage.loadAll()
+const skillTools = buildStorefrontSkillTools({
+  skills: savedSkills,
+  driver,
+  storage: skillStorage,
+  timeout: TIMEOUT_MS,
+})
+const registerTool = createRegisterSkillTool(sessionId)
+
+const stream = chat({
+  /* … */
+  tools: [codeMode.tool, registerTool, ...skillTools],
+  systemPrompts: [
+    STOREFRONT_PROMPT,
+    codeMode.systemPrompt,
+    createStorefrontUIPrompt({ zipCode }),
+    skillCatalog, // ← lists saved skills as "use these directly"
+    /* … */
+  ],
+})
+```
+
+`buildStorefrontSkillTools` (in `skill-to-storefront-tool.ts`) wraps each saved skill into a regular tool the model can call. Inside the wrapper, the skill gets the **read-only** subset of catalog `external_*` bindings plus the full `ui_*` set:
+
+```ts
+const bindings = {
+  ...toolsToBindings(catalogTools, 'external_'), // searchProducts, getProduct, …
+  ...createStorefrontUIBindings(), // ui_addProductCard, ui_addCTA, …
+}
+```
+
+No `addToCart`. No `placeOrder`. A skill literally _cannot_ mutate the cart, even if the model gets clever. Defense in depth: `register_skill` also runs a static classifier (`skill-classifier.ts`) that rejects any program containing `external_addToCart`, `external_clearCart`, `external_placeOrder`, or dynamic dispatch (`eval`, `Function`, `import()`, `(globalThis as any)['external_' + name]`).
+
+### How does the model know to register?
+
+That's the only delicate piece. The system prompt now has a section that boils down to: _after every successful catalog query, call `register_skill` with the body of the program you just ran — unless the query was vague or one-off._ A few rules go with it:
+
+- `code` is the program body with shopper constants baked in (size, brand, zip code from session context).
+- Skills are zero-arg in v1 (no input parameters).
+- `name` is snake_case and descriptive enough that two similar shopper requests don't fight over the same name.
+
+The first time I phrased this with "MAY register," Sonnet politely ignored it. Switching to "DO THIS AFTER EVERY SUCCESSFUL CATALOG QUERY" turned it into a reliable behavior. Worth knowing if you're trying to make autonomous tool-calling actually fire — soft hedges are an anti-pattern when you want the model to commit.
+
+### Why invisible
+
+The upstream package supports a more visible pattern: chips above the input, a "save shortcut?" banner the user accepts or declines. I tried it first; the chip UX is satisfying when it works. But the philosophical version is: **skills are a memoization layer the LLM manages itself.** The user notices that the assistant got faster on a repeat query, the same way they notice that their browser cached an image. They don't need to opt in.
+
+For a consumer-facing surface where you don't fully trust the LLM-authored code, the chip + confirm flow is the right call. For an internal tool, an agent that runs unattended, or a logged-in user with a stable shopping pattern, invisible is cleaner — and it's the closer match to how upstream `codeModeWithSkills` is designed.
+
+### What ends up on disk
+
+After two queries, this app's `.skills/` looks like:
+
+```
+.skills/
+└── users/
+    └── 322141d5-…/                          # session id (sid cookie)
+        ├── _index.json
+        └── pegasus_41_size_10/
+            ├── meta.json                     # description, schemas, stats
+            └── code.ts                       # the actual TypeScript
+```
+
+The `code.ts` is a real file you can open, read, hand-edit. That's the upstream `createFileSkillStorage` layout — the skill library is just files, no database, gitignored. Storage is namespaced by session id, so two shoppers can both register a `find_my_pegasus` without collision.
+
+This is bullet 9. The eight-bullet loop now has a self-improving tail: every time the model successfully fans out a catalog query, that program gets a name and becomes a one-call replacement next time.
+
 ## What I think when I read this codebase now
 
 A few things have stuck with me after living in this code for a while:
@@ -382,7 +483,8 @@ A few things have stuck with me after living in this code for a while:
 - **The closed vocabulary is the security model.** I keep forgetting this and re-discovering it. The sandbox can't `fetch` the internet, can't read the filesystem, can't import npm. It can only call functions I handed it. So when I'm tempted to "just expose another binding," I'm actually expanding the attack surface — that should hurt a little.
 - **The system prompt is a contract.** The model writes against the type stubs in `codeMode.systemPrompt` and `createStorefrontUIPrompt`. If those stubs disagree with the actual binding signatures, the program throws and I burn a retry. Keeping the registry as the source of truth (one place, three consumers: bindings, prompt, React) is the only reason this stays sane.
 - **Streaming is the experience.** The reason this app feels different from a traditional tool-calling agent isn't that it's "smarter" — it's that the canvas mutates while the model thinks. That fall-out from `emitCustomEvent` mid-program is half of the perceived UX win.
-- **Cost-shifting is the business case.** Every round-trip you eliminate is hundreds of tokens of message history you don't replay on the next turn. For shopping-shaped queries (one search → fan-out → render) the savings compound fast.
+- **Cost-shifting is the business case.** Every round-trip you eliminate is hundreds of tokens of message history you don't replay on the next turn. For shopping-shaped queries (one search → fan-out → render) the savings compound fast — and skills compound them again.
+- **Skills make the loop self-improving.** Once you have the closed-vocabulary sandbox and a way to persist programs, "the model gets faster the more this user shops" stops being a feature you build and starts being a property of the system. Invisible-mode skills are the cheap way to lean into that.
 
 ## Takeaways
 
@@ -391,11 +493,14 @@ A few things have stuck with me after living in this code for a while:
 - Each `ui_*` binding's `execute` doesn't compute — it calls `emitCustomEvent`, sending a typed event up the SSE stream that a client reducer materializes into React mid-program.
 - The `ui-registry.ts` array is the single source of truth: bindings, system prompt, and React cases all derive from it. Adding a primitive is one row plus one React case.
 - Code mode shines on fan-out workflows; for a single mutation (the "Add to cart" button), this app intentionally bypasses the LLM with a direct handler endpoint. Use code mode where it pays off.
+- Skills extend the same primitive: the LLM auto-registers successful programs as named tools, scoped per shopper, persisted as plain files. The user never sees the chip — they just notice the assistant got faster. Read-only enforcement (a wrapper that drops cart/order bindings + a static classifier) keeps the autonomous registration safe.
 
 ## What to read next
 
 If you want to go deeper from here, the move that taught me the most was this: open the Storekeeper drawer, send a query, and click open the **Code** tab on the program card it produces. You'll see the actual TypeScript the model wrote for your turn. Read it next to the `external_*` and `ui_*` declarations in `ui-prompt.ts`. That side-by-side — _what I told the model it could call_ vs _what it actually called_ — is where the model's behavior stops being mysterious.
 
-When you've done that a few times, the natural follow-on is `@tanstack/ai-code-mode-skills`: same primitive, but successful programs get persisted as named, reusable tools the model can invoke directly. This app intentionally leaves that out of scope — but the [TanStack AI Code Mode announcement](https://tanstack.com/blog/code-mode-let-your-ai-write-programs) walks through the lifecycle, and the [Cloudflare post](https://blog.cloudflare.com/code-mode/) is still the best one-page case for why any of this is worth the trouble.
+When you've done that a few times, send the **same** query again and time it. Then `cat .skills/users/*/*/code.ts` and read what got persisted. That side-by-side — _what the model wrote when it had to think_ vs _what it now calls without thinking_ — is the second mystery solved.
+
+If you want the conceptual frame: the [TanStack AI Code Mode announcement](https://tanstack.com/blog/code-mode-let-your-ai-write-programs) walks the skill lifecycle (proposal → trust promotion → reuse) and the [Cloudflare post](https://blog.cloudflare.com/code-mode/) is still the best one-page case for why any of this is worth the trouble.
 
 Now go open the drawer and send a query. The whole thing fits in your head once you've watched it happen once.

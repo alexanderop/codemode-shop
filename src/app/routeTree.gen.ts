@@ -17,6 +17,7 @@ import { Route as ApiStorefrontHandlerRouteImport } from './routes/api.storefron
 import { Route as ApiStorefrontAgentRouteImport } from './routes/api.storefront-agent'
 import { Route as ApiCheckoutRouteImport } from './routes/api.checkout'
 import { Route as ApiCartRouteImport } from './routes/api.cart'
+import { Route as ApiSkillsNameRouteImport } from './routes/api.skills.$name'
 import { Route as ApiOrdersOrderIdRouteImport } from './routes/api.orders.$orderId'
 
 const CheckoutRoute = CheckoutRouteImport.update({
@@ -59,6 +60,11 @@ const ApiCartRoute = ApiCartRouteImport.update({
   path: '/api/cart',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSkillsNameRoute = ApiSkillsNameRouteImport.update({
+  id: '/$name',
+  path: '/$name',
+  getParentRoute: () => ApiSkillsRoute,
+} as any)
 const ApiOrdersOrderIdRoute = ApiOrdersOrderIdRouteImport.update({
   id: '/api/orders/$orderId',
   path: '/api/orders/$orderId',
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/api/storefront-handler': typeof ApiStorefrontHandlerRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/api/orders/$orderId': typeof ApiOrdersOrderIdRoute
+  '/api/skills/$name': typeof ApiSkillsNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/api/storefront-handler': typeof ApiStorefrontHandlerRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/api/orders/$orderId': typeof ApiOrdersOrderIdRoute
+  '/api/skills/$name': typeof ApiSkillsNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/api/storefront-handler': typeof ApiStorefrontHandlerRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/api/orders/$orderId': typeof ApiOrdersOrderIdRoute
+  '/api/skills/$name': typeof ApiSkillsNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/api/storefront-handler'
     | '/orders/$orderId'
     | '/api/orders/$orderId'
+    | '/api/skills/$name'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/api/storefront-handler'
     | '/orders/$orderId'
     | '/api/orders/$orderId'
+    | '/api/skills/$name'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/api/storefront-handler'
     | '/orders/$orderId'
     | '/api/orders/$orderId'
+    | '/api/skills/$name'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -204,6 +216,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/cart'
       preLoaderRoute: typeof ApiCartRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/skills/$name': {
+      id: '/api/skills/$name'
+      path: '/$name'
+      fullPath: '/api/skills/$name'
+      preLoaderRoute: typeof ApiSkillsNameRouteImport
+      parentRoute: typeof ApiSkillsRoute
     }
     '/api/orders/$orderId': {
       id: '/api/orders/$orderId'
