@@ -16,6 +16,6 @@ So `onFinish` fires twice per code-mode turn. See also [[architecture/use-chat]]
 
 - **Never null out `currentTurnId` on turn end.** Let the next `startTurn` overwrite it. Late events for the previous turn keep landing on the right turn.
 - **Re-snapshotting in `onFinish` is fine** because the second call (after `finishReason=stop`) sees the full UI state.
-- **Prefer driving state from `onCustomEvent`** over `onFinish`/`onStreamEnd`. The canonical TanStack code-mode examples (e.g. `examples/ts-code-mode-web/_banking-demo`) update state inline as events arrive and never snapshot at all. The "freeze the canvas per turn" pattern in this repo is the reason we have a race at all.
+- **Prefer driving state from `onCustomEvent`** over `onFinish`/`onStreamEnd`. The canonical TanStack code-mode examples (e.g. `examples/ts-code-mode-web/_banking-demo`) update state inline as events arrive and never snapshot at all. The "freeze the canvas per turn" pattern in this repo is the reason we have a race at all — that's [[principles/fix-root-causes]] in action: every `onFinish` patch was a symptom; the cause was choosing the wrong event boundary.
 
 Regression tests: `src/features/storefront/stores/activity-store.test.ts` ("endTurn keeps currentTurnId so late code-mode events still record", "startTurn overwrites a lingering currentTurnId from a finished turn").

@@ -1,6 +1,6 @@
 # Tests
 
-Three suites are wired — see [[architecture/test-infrastructure]] for the projects (`node`/`dom`/e2e), auto-guards, cassette server, and DOM browser-mode conventions. For agent-level tests that bypass the LLM, see [[architecture/integration-testing]]. The style rules below apply to all of them.
+Three suites are wired — see [[architecture/test-infrastructure]] for the projects (`unit`/`component`/`e2e`), auto-guards, MSW cassette playback, and browser-mode conventions. For agent-level tests that bypass the LLM, see [[architecture/integration-testing]]. The style rules below apply to all of them.
 
 Style:
 

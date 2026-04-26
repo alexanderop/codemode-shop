@@ -50,7 +50,7 @@ cp .env.example .env      # then put your Anthropic key in it
 pnpm dev                  # http://localhost:3000
 ```
 
-You need an `ANTHROPIC_API_KEY` from <https://console.anthropic.com>. The default model is `claude-haiku-4-5` — cheap and scored top-tier on the TanStack AI code-mode eval.
+You need an `ANTHROPIC_API_KEY` from <https://console.anthropic.com>. The default model is `claude-sonnet-4-6`; set `STOREFRONT_MODEL=claude-haiku-4-5` in `.env` for a cheaper run that still scores top-tier on the TanStack AI code-mode eval.
 
 Click **Ask Storekeeper** in the header and try:
 
@@ -62,15 +62,15 @@ Click **Ask Storekeeper** in the header and try:
 
 The tutorial is structured so each commit / section maps to one concept.
 
-| #   | File                                                                         | Concept                                                                                                                                                                                                                                                        |
-| --- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `src/lib/catalog.ts`                                                         | In-memory catalog (30 shoes, inventory, reviews, price history). No backend.                                                                                                                                                                                   |
-| 2   | `src/lib/tools/catalog-tools.ts`                                             | Headless TanStack AI tools: `searchProducts`, `getProduct`, `getStockAndShipping`, `getReviewSummary`, `getPriceHistory`, `addToCart`. These are the "external API surface" the sandboxed LLM code can call.                                                   |
-| 3   | `src/routes/api.storefront-agent.ts`                                         | The server endpoint. `createCodeMode({ driver: createQuickJSIsolateDriver(), tools: catalogTools, getSkillBindings: … })` + Anthropic adapter + SSE.                                                                                                           |
-| 4   | `src/lib/storefront/ui-bindings.ts`                                          | The closed **UI vocabulary** the sandbox can render: `ui_addProductCard`, `ui_addStockPill`, `ui_addPriceSparkline`, `ui_addReviewBar`, `ui_addComparisonTable`, `ui_addCTA`, plus `ui_update`/`ui_remove`. Each binding emits a `storefront:ui` custom event. |
-| 5   | `src/lib/storefront/ui-prompt.ts`                                            | Type-stubs for the UI vocabulary spliced into the system prompt so the LLM codes against a real `declare function …` surface.                                                                                                                                  |
-| 6   | `src/lib/storefront/ui-store.ts` + `components/storefront-canvas.tsx`        | Client reducer that turns streamed `UIEvent`s into a tree of React components. `useSyncExternalStore` keeps render-time minimal.                                                                                                                               |
-| 7   | `src/routes/api.storefront-handler.ts` + `src/lib/storefront/run-handler.ts` | Interactive CTAs re-enter code mode to verify stock and emit a `cart:update` event that bumps the header badge. Same pattern as the main agent — one tool, one generation, N effects.                                                                          |
+| #   | File                                                                                                      | Concept                                                                                                                                                                                                                                                        |
+| --- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `src/lib/catalog.ts`                                                                                      | In-memory catalog (30 shoes, inventory, reviews, price history). No backend.                                                                                                                                                                                   |
+| 2   | `src/lib/tools/catalog-tools.ts`                                                                          | Headless TanStack AI tools: `searchProducts`, `getProduct`, `getStockAndShipping`, `getReviewSummary`, `getPriceHistory`, `addToCart`. These are the "external API surface" the sandboxed LLM code can call.                                                   |
+| 3   | `src/app/routes/api.storefront-agent.ts` + `src/features/storefront/api/code-mode.ts` + `driver.ts`       | The server endpoint. `createCodeMode({ driver: createNodeIsolateDriver(), tools: catalogTools, getSkillBindings: … })` + Anthropic adapter + SSE.                                                                                                              |
+| 4   | `src/features/storefront/api/ui-bindings.ts`                                                              | The closed **UI vocabulary** the sandbox can render: `ui_addProductCard`, `ui_addStockPill`, `ui_addPriceSparkline`, `ui_addReviewBar`, `ui_addComparisonTable`, `ui_addCTA`, plus `ui_update`/`ui_remove`. Each binding emits a `storefront:ui` custom event. |
+| 5   | `src/features/storefront/api/ui-prompt.ts`                                                                | Type-stubs for the UI vocabulary spliced into the system prompt so the LLM codes against a real `declare function …` surface.                                                                                                                                  |
+| 6   | `src/features/storefront/stores/ui-store.ts` + `src/features/storefront/components/storefront-canvas.tsx` | Client reducer that turns streamed `UIEvent`s into a tree of React components. `useSyncExternalStore` keeps render-time minimal.                                                                                                                               |
+| 7   | `src/app/routes/api.storefront-handler.ts` + `src/features/storefront/api/run-handler.ts`                 | Interactive CTAs re-enter code mode to verify stock and emit a `cart:update` event that bumps the header badge. Same pattern as the main agent — one tool, one generation, N effects.                                                                          |
 
 ## What the LLM actually writes
 
@@ -158,7 +158,7 @@ One generation. ~15 host tool executions. Zero extra round-trips through the mod
 - [TanStack Start](https://tanstack.com/start) — file-based routing, server handlers
 - [`@tanstack/ai`](https://www.npmjs.com/package/@tanstack/ai) + [`@tanstack/ai-react`](https://www.npmjs.com/package/@tanstack/ai-react) — chat + streaming + `useChat`
 - [`@tanstack/ai-code-mode`](https://www.npmjs.com/package/@tanstack/ai-code-mode) — `execute_typescript` tool + sandbox wiring
-- [`@tanstack/ai-isolate-quickjs`](https://www.npmjs.com/package/@tanstack/ai-isolate-quickjs) — WASM isolate (zero native deps)
+- [`@tanstack/ai-isolate-node`](https://www.npmjs.com/package/@tanstack/ai-isolate-node) — sandbox driver backed by `isolated-vm`
 - [`@tanstack/ai-anthropic`](https://www.npmjs.com/package/@tanstack/ai-anthropic) — Claude adapter
 - [shadcn/ui](https://ui.shadcn.com) + Tailwind CSS v4
 

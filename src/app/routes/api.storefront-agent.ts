@@ -4,6 +4,8 @@ import type { ModelMessage } from '@tanstack/ai'
 import { anthropicText } from '@tanstack/ai-anthropic'
 import { storefrontModel } from '#/config/model'
 import { createStorefrontUIPrompt } from '#/features/storefront/api/ui-prompt'
+import { createAiUiPrompt } from '#/features/ai-ui/prompt'
+import { createAiUiBindings } from '#/features/ai-ui/bindings'
 import { buildStorefrontCodeMode } from '#/features/storefront/api/code-mode'
 import { getStorefrontDriver } from '#/features/storefront/api/driver'
 import { withSession } from '#/lib/session'
@@ -144,6 +146,12 @@ async function buildSystemPromptSections({
       source: 'createStorefrontUIPrompt — template + UI registry declarations',
     },
     {
+      label: 'AI-controlled UI actions',
+      content: createAiUiPrompt(),
+      origin: 'generated',
+      source: 'createAiUiPrompt — AI action registry declarations',
+    },
+    {
       label: 'Saved skills',
       content: skillCatalog,
       origin: 'generated',
@@ -191,6 +199,7 @@ export const Route = createFileRoute('/api/storefront-agent')({
             driver,
             sessionId,
             timeout: TIMEOUT_MS,
+            extraBindings: createAiUiBindings(),
           })
 
           const skillStorage = getSkillStorageForSession(sessionId)
@@ -215,6 +224,7 @@ export const Route = createFileRoute('/api/storefront-agent')({
               STOREFRONT_PROMPT,
               codeMode.systemPrompt,
               createStorefrontUIPrompt({ zipCode }),
+              createAiUiPrompt(),
               skillCatalog,
               `Shopper context: zipCode=${zipCode}. Today is ${new Date().toISOString().slice(0, 10)}.`,
             ].filter((s) => s.length > 0),

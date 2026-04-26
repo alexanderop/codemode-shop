@@ -22,6 +22,7 @@
 
 - [[principles/prove-it-works]]
 - [[principles/fix-root-causes]]
+- [[principles/quote-code-from-disk]]
 - [[principles/vitest-browser-vs-playwright]]
 
 ## Delegation

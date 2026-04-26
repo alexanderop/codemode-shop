@@ -1,8 +1,7 @@
 ---
 name: walkthrough
 description: >
-  Generates a self-contained HTML walkthrough (Mermaid flowchart, ER diagram, or narrated
-  linear trace) of a codebase feature, flow, architecture, or schema.
+  Generates a self-contained HTML walkthrough of a codebase feature, flow, architecture, or schema.
   Triggers: "$walkthrough", "walk me through", "trace the code path", "explain this flow",
   "visualize the data model".
 compatibility: Designed for Claude Code (or similar products). Requires a browser to open generated HTML files.

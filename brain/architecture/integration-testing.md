@@ -18,14 +18,14 @@ expect(out.uiEvents).toContainEqual(...)
 
 ## Fixtures
 
-`evals/fixtures/programs/*.ts` — each fixture exports `program: string` (a TypeScript snippet). Existing fixtures cover the canonical happy and unhappy paths: `happy-search-recommend`, `comparison-table`, `out-of-stock-fallback`, `place-order`, `price-history`, `tool-error-recovery`. Used by `src/features/storefront/api/integration.matrix.test.ts` and `integration.test.ts`.
+`evals/fixtures/programs/*.ts` — each fixture exports `program: string` (a TypeScript snippet). Existing fixtures cover the canonical happy and unhappy paths: `happy-search-recommend`, `comparison-table`, `out-of-stock-fallback`, `place-order`, `price-history`, `tool-error-recovery`. Used by `test/unit/features/storefront/api/integration.matrix.test.ts` and `integration.test.ts`.
 
 ## Why no LLM
 
 The LLM isn't what breaks. The mechanism around it is: bindings emitting wrong shapes, isolate boundary conditions, store reducers, cart mutations under concurrency. Mocking the LLM to drive those would be slower, flakier, and test the mock instead of the system. Mocking the isolate to test the LLM would test the mock too.
 
-When the LLM **is** what's under test (regression on a prompt change, model swap), use the cassette server in `test/` — see [[architecture/test-infrastructure]].
+When the LLM **is** what's under test (regression on a prompt change, model swap), use MSW cassette playback (`test/cassettes/`, `test/msw/handlers.ts`) — see [[architecture/test-infrastructure]].
 
 ## Determinism
 
-`integration.matrix.test.ts` includes a determinism assertion: same fixture run twice produces identical `uiEvents` and `toolCalls`. If you make any binding non-deterministic (random ids, `Date.now()` in event payloads), this guard catches it.
+`test/unit/features/storefront/api/integration.matrix.test.ts` includes a determinism assertion: same fixture run twice produces identical `uiEvents` and `toolCalls`. If you make any binding non-deterministic (random ids, `Date.now()` in event payloads), this guard catches it.

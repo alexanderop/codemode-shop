@@ -12,7 +12,9 @@ dist-ssr
 __unconfig*
 todos.json
 .claude/settings.local.json
+.claude/worktrees
 .skills
 coverage
 playwright-report
 test-results
+.vitest-attachments

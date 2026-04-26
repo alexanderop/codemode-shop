@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { HeadContent, Link, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
@@ -12,6 +13,14 @@ import { KeyboardCheatsheet } from '#/components/keyboard-cheatsheet'
 import { assistantUi, useAssistantOpen } from '#/stores/assistant-ui'
 import { cheatsheetUi, useCheatsheetOpen } from '#/stores/cheatsheet-ui'
 import { cartQueryOptions } from '#/queries/cart'
+import { AiActionConfirm } from '#/features/ai-ui/ai-action-confirm'
+import { useAiActionHandler } from '#/features/ai-ui/use-ai-action'
+import { aiUiStore } from '#/features/ai-ui/store'
+import {
+  AI_UI_DISPATCH_EVENT,
+  type AiAction,
+  type AiActionPayloadByType,
+} from '#/features/ai-ui/types'
 
 import appCss from '#/styles.css?url'
 
@@ -75,6 +84,25 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     void router.navigate({ to: '/cart' })
   })
 
+  const handleNavigate = useCallback(
+    (payload: AiActionPayloadByType['navigate']) => {
+      const go = () => router.navigate({ to: payload.to })
+      if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+        document.startViewTransition(() => go())
+      } else {
+        void go()
+      }
+    },
+    [router],
+  )
+  useAiActionHandler('navigate', handleNavigate)
+
+  const handleDrawerCustomEvent = useCallback((eventType: string, data: unknown) => {
+    if (eventType === AI_UI_DISPATCH_EVENT) {
+      aiUiStore.propose(data as AiAction)
+    }
+  }, [])
+
   return (
     <html lang="en">
       <head>
@@ -82,9 +110,14 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <StorekeeperDrawer open={assistantOpen} onOpenChange={assistantUi.set} />
+        <StorekeeperDrawer
+          open={assistantOpen}
+          onOpenChange={assistantUi.set}
+          onCustomEvent={handleDrawerCustomEvent}
+        />
         <KeyboardCheatsheet open={cheatsheetOpen} onOpenChange={cheatsheetUi.set} />
-        <Toaster richColors position="bottom-right" />
+        <AiActionConfirm />
+        <Toaster richColors position="top-center" />
         <TanStackDevtools
           config={{
             position: 'bottom-right',

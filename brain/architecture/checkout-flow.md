@@ -21,3 +21,5 @@ If the shopper gives full payment details in chat, the agent skips the form: it 
 ## Why the form (not the LLM) handles submit
 
 The form posts directly to `/api/checkout`, not through the LLM handler. Re-entering code mode for a pure mutation would just slow it down; the form already has all the data and the server already has all the logic.
+
+See [[architecture/request-flow]] for how chat-canvas surfaces and the regular UI both reach `/api/checkout`.

@@ -114,14 +114,18 @@ export function StorekeeperDrawer({
   open,
   onOpenChange,
   zipCode = '94107',
+  onCustomEvent,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   zipCode?: string
+  onCustomEvent?: (eventType: string, data: unknown) => void
 }) {
   const lastPromptRef = useRef<string>('')
   const turnIdsRef = useRef<Array<string>>([])
   const inputRef = useRef<HTMLInputElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const stickToBottomRef = useRef(true)
   const queryClient = useQueryClient()
 
   const { messages, sendMessage, isLoading, stop } = useChat({
@@ -133,6 +137,7 @@ export function StorekeeperDrawer({
       } else if (eventType.startsWith('code_mode:')) {
         activityStore.record(eventType, data as Record<string, unknown>)
       }
+      onCustomEvent?.(eventType, data)
     },
     onFinish() {
       const currentTid = activityStore.get().currentTurnId
@@ -271,6 +276,24 @@ export function StorekeeperDrawer({
     return userCount > assistantCount ? cur : null
   }, [activityState.byTurnId, activityState.currentTurnId, isLoading, typedMessages])
 
+  useEffect(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    const onScroll = () => {
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+      stickToBottomRef.current = distance < 80
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const el = scrollContainerRef.current
+    if (!el || !stickToBottomRef.current) return
+    el.scrollTop = el.scrollHeight
+  }, [open, typedMessages, activityState, isLoading])
+
   let assistantIdxCursor = -1
 
   return (
@@ -303,7 +326,10 @@ export function StorekeeperDrawer({
             </SheetDescription>
           </SheetHeader>
 
-          <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+          <div
+            ref={scrollContainerRef}
+            className="scrollbar-thin min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+          >
             <div
               className="space-y-3 p-5"
               role="log"

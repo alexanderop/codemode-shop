@@ -22,7 +22,7 @@ export function getStorefrontDriver(opts: { timeout: number; memoryLimit: number
 Two things this is doing:
 
 1. **Lazy `await import`** — `@tanstack/ai-isolate-node` pulls in `isolated-vm` (native addon). Importing it eagerly at module top-level breaks SSR/build environments without the binary. Dynamic import keeps the route tree-shakeable.
-2. **Reuse the driver across requests** — driver creation does the `isolated-vm` probe and other setup. We pay it once per `(timeout, memoryLimit)` combo per process.
+2. **Reuse the driver across requests** — driver creation does the `isolated-vm` probe and other setup. We pay it once per `(timeout, memoryLimit)` combo per process. The cache is keyed by config rather than identity, which makes startup [[principles/make-operations-idempotent|idempotent]] — concurrent first-callers converge on the same `Promise<IsolateDriver>` instead of double-initializing.
 
 ## Code-mode is rebuilt per request, not cached
 

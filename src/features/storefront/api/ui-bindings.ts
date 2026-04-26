@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { ToolBinding } from '@tanstack/ai-code-mode'
 import type { ComponentPropsByType, UIEvent } from '#/features/storefront/types/ui-types'
 import { storefrontUIPrimitives } from '#/features/storefront/api/ui-registry'
-import { makeBinding } from '#/features/storefront/api/binding'
+import { makeBinding } from '#/lib/code-mode-binding'
 
 function binding<T extends z.ZodType>(
   name: string,

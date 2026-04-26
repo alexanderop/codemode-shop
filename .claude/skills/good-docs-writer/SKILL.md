@@ -1,10 +1,9 @@
 ---
 name: good-docs-writer
 description: >
-  Turn a topic into a structured blog-post draft using The Good Docs Project templates
-  (explainer, walkthrough, recipe, quickstart, debug story, release post, cheat sheet)
-  adapted to blog voice. Triggers: "$good-docs-writer <intent> <topic>",
-  "write a blog post about X", "draft a blog post on X".
+  Turn a topic into a structured blog-post draft using Good Docs templates with blog voice.
+  Triggers: "$good-docs-writer <intent> <topic>", "write a blog post about X",
+  "draft a blog post on X".
 allowed-tools: Bash Read Write Glob Grep AskUserQuestion
 metadata:
   author: Alexander Opalic

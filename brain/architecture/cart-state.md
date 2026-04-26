@@ -1,6 +1,6 @@
 # Cart state
 
-Session-scoped `Map<SessionId, Map<string, CartLine>>` in `src/lib/cart.ts`. Each request resolves its session via `sessionContext.get()` (see [[architecture/sessions]] if present, else `src/lib/session-context.ts` + `src/lib/session.ts`). **In-memory only — restart = empty.**
+Session-scoped `Map<SessionId, Map<string, CartLine>>` in `src/lib/cart.ts`. Each request resolves its session via `sessionContext.get()` (`src/lib/session-context.ts` + `src/lib/session.ts`). **In-memory only — restart = empty.**
 
 ## Operations (server-side, called by both REST endpoints and sandbox tools)
 
@@ -19,14 +19,16 @@ See [[principles/prefer-one-source-of-truth]] and [[architecture/checkout-flow]]
 
 `external_placeOrder` and `external_getOrder` are part of the same session-scoped tool set — see [[architecture/orders]].
 
-## Client cart store (`src/stores/client-cart.ts`)
+## Client cart state — TanStack Query
 
-Holds the full `DetailedCart` shape (not just count). `useCart()` returns the cart, `useCartCount()` derives the badge count.
+`src/queries/cart.ts` owns the cart on the client. There is no module-scoped store.
 
-The store is hydrated/refreshed by:
+- `cartQueryOptions()` / `useCart()` / `useCartCount()` — read.
+- `useCartMutation()` — optimistic update against the `['cart']` queryKey, rolls back on error, replaces with the server response on success.
+- `invalidateCart(queryClient)` — triggers a refetch.
 
-- `<CartHydrator />` in `src/app/routes/__root.tsx` — fetches `/api/cart` once on mount.
-- Every REST mutation re-uses the response body to call `clientCart.set(next)`.
-- Handler endpoint emits `cart:update` SSE event (full `DetailedCart`) → `run-handler.ts` calls `clientCart.set`.
-- Chat agent's `onFinish` callback in `src/features/storefront/components/storekeeper-drawer.tsx` calls `clientCart.refresh()` only when the turn touched the cart (`turnTouchedCart` short-circuit) — covers direct `external_addToCart` / `placeOrder` calls inside the sandbox without spamming `/api/cart` on pure search turns.
-- `run-handler.ts` tracks whether the stream actually emitted `cart:update`; if not (e.g. the handler-agent forgot to call `cart_update({})`), it falls back to `clientCart.refresh()` once the stream ends. Safety net — the handler-LLM has been observed using `cart_update` as a UI node id instead of invoking the binding, so don't rely on it alone.
+Hydration / refresh:
+
+- `__root.tsx` loader prefetches `cartQueryOptions()` so the badge is correct on first paint.
+- The handler endpoint emits a `cart:update` SSE frame carrying the full `DetailedCart`. `run-handler.ts` calls `queryClient.setQueryData(cartQueryKey, …)` directly. If no `cart:update` arrives during the stream (e.g. a sandbox call mutated the cart without the SSE frame), `run-handler.ts` calls `invalidateCart(queryClient)` once at stream end as a safety net.
+- The drawer's `onFinish` calls `invalidateCart(queryClient)` only when the turn touched the cart (`turnTouchedCart` short-circuit) so cart mutations made directly inside the sandbox reach the badge without spamming `/api/cart` on pure search turns.

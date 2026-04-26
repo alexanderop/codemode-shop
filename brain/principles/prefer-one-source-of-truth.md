@@ -15,7 +15,7 @@ When multiple surfaces need the same data or behavior — REST endpoint and sand
 - `src/lib/cart.ts` is called by both `POST /api/cart` (REST) and the session-scoped `external_*` cart tools (sandbox). See [[architecture/cart-state]].
 - `src/lib/orders.ts` `placeOrder()` is called by both `POST /api/checkout` and `external_placeOrder`. See [[architecture/orders]].
 - `<CheckoutForm />` mounts in both `/checkout` and the in-canvas `ui_addCheckoutForm` node, both posting to `/api/checkout`. See [[architecture/checkout-flow]].
-- `clientCart` (`src/stores/client-cart.ts`) is the single client cache; the REST mutation, the SSE `cart:update` event, and the chat-turn `onFinish` refresh all converge on it.
+- The TanStack Query `['cart']` query (`src/queries/cart.ts`) is the single client cache; the REST mutation's optimistic update, the SSE `cart:update` event, and the chat-turn `onFinish` refresh all converge on it via `setQueryData` / `invalidateCart`.
 
 **Boundaries:**
 

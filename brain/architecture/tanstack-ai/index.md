@@ -11,4 +11,3 @@ Notes on how `@tanstack/ai` and `@tanstack/ai-code-mode` actually work, separate
 - [[architecture/tanstack-ai/tool-bindings]]
 - [[architecture/tanstack-ai/isolate-driver]]
 - [[architecture/tanstack-ai/system-prompt-generation]]
-- [[architecture/tanstack-ai/devtools]]

@@ -15,3 +15,5 @@ When facing a novel interaction or architectural decision with no established pr
 - Mechanical implementation where the pattern is established
 - Bug fixes or refactors with a clear target state
 - Changes where constraints dictate a single viable approach
+
+**Boundary with [[principles/never-block-on-the-human]]:** execution proceeds without blocking; only commit-to-direction decisions warrant the multi-prototype gate. If the work is mechanical, ship it; if it's a fork in the road, exhaust the space first.

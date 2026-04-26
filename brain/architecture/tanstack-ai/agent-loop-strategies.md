@@ -10,7 +10,7 @@ Built-ins (`@tanstack/ai`):
 
 Our usage:
 
-- Main agent: `maxIterations(6)` — gives the model room to retry if its first program crashes.
-- Handler: `maxIterations(2)` — one tool call + one short text reply, that's all we want.
+- Main agent (`/api/storefront-agent`): `maxIterations(6)` — gives the model room to retry if its first program crashes.
+- The handler (`/api/storefront-handler`) is hard-coded — it does **not** call `chat()`, so no strategy applies. See [[architecture/request-flow]].
 
-If you change these, also revisit the prompts (`STOREFRONT_PROMPT` / `HANDLER_PROMPT`) which assume a single `execute_typescript` call.
+If you change the main agent strategy, also revisit `STOREFRONT_PROMPT`, which assumes a single `execute_typescript` call.

@@ -60,7 +60,7 @@ The whole point: **convert silent failures into loud, default-on test failures.*
 
 - **Real Anthropic calls fail loudly.** A real network call to the Anthropic API mid-test trips a guard. Tests must use cassettes (see below) or the fixture-driven program runner ([[architecture/integration-testing]]).
 - **`console.error` during a test fails the test.** Catches React warnings, store errors, anything that would otherwise scroll past in CI.
-- **Module-scoped stores reset between tests.** `uiStore`, `activityStore`, `clientCart`, `assistantUi` all get reset in `beforeEach`. Without this, a singleton's state from an earlier test leaks into the next one.
+- **Module-scoped stores reset between tests.** `uiStore`, `activityStore`, `assistantUi` all get reset in `beforeEach` (see `test/setup-global.ts`). Without this, a singleton's state from an earlier test leaks into the next one. Cart state lives in TanStack Query — tests get a fresh `QueryClient` per render, so it does not need a global reset.
 - **Coverage meta-tests** (`test/unit/features/storefront/api/coverage.test.ts`) assert every UI primitive and catalog tool has a corresponding test — adding a new tool without a test fails CI.
 
 ## Cassette playback via MSW (`test/msw/handlers.ts`, `test/cassettes/`)

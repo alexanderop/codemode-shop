@@ -8,7 +8,7 @@
   - `'storefront:ui'` → `uiStore.dispatch`
   - `'code_mode:*'` → `activityStore.record`
 - `onFinish(message)` / `onError(err)` — surface a toast and re-snapshot the canvas. Note `onFinish` fires twice per code-mode turn — see [[architecture/onfinish-race]].
-- Returned `messages` are `UIMessage`s (parts array). Tool calls show up as `parts[i].type === 'tool-call'` with `name === 'execute_typescript'`. We extract them in the drawer to populate `ProgramCard`.
+- Returned `messages` are `UIMessage`s (parts array). Tool calls show up as `parts[i].type === 'tool-call'` with `name === 'execute_typescript'`. We extract them in the drawer to populate `ProgramCard`. See [[architecture/tanstack-ai/ag-ui-stream-chunks]] for the wire shape.
 
 **Don't** use `useChat` for the handler endpoint — it would pull a whole second message history we don't want. The handler reads SSE manually in `run-handler.ts`.
 
