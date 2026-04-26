@@ -1,4 +1,4 @@
-import type { Cassette } from './types'
+import { lastUserText, type Cassette } from './types'
 
 /**
  * Worst-case streaming pattern: a loading skeleton that lingers, then resolves
@@ -8,11 +8,7 @@ import type { Cassette } from './types'
 export const cassette: Cassette = {
   name: 'slow-streaming',
   route: '/api/storefront-agent',
-  match: ({ body }) => {
-    const messages = (body as { messages?: Array<{ content: string }> }).messages
-    const last = messages?.[messages.length - 1]?.content ?? ''
-    return /slow|wait|loading/i.test(last)
-  },
+  match: ({ body }) => /slow|wait|loading/i.test(lastUserText(body)),
   chunks: [
     {
       type: 'ui',

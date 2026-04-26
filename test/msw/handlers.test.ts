@@ -12,8 +12,15 @@ function makeRequest(body: unknown): Request {
   })
 }
 
+// Mirrors the wire shape that `@tanstack/ai-client`'s `useChat` actually sends:
+// the user message is `{ role, parts: [{ type: 'text', content }] }`, not
+// `{ role, content }`. Tests must use this shape so cassette matchers stay honest.
+function userMessage(text: string) {
+  return { role: 'user', parts: [{ type: 'text', content: text }] }
+}
+
 describe('MSW storefront-agent handler', () => {
-  it('returns 404 for unmatched cassettes with the documented body shape', async () => {
+  it('returns 404 for unmatched cassettes', async () => {
     const res = await getResponse(handlers, makeRequest({ messages: [] }))
     expect(res?.status).toBe(404)
     const json = (await res?.json()) as { error: string; method: string }
@@ -24,7 +31,7 @@ describe('MSW storefront-agent handler', () => {
   it('streams the happy-search-recommend cassette as SSE chunks', async () => {
     const res = await getResponse(
       handlers,
-      makeRequest({ messages: [{ role: 'user', content: 'show me running shoes' }] }),
+      makeRequest({ messages: [userMessage('show me running shoes')] }),
     )
     expect(res?.status).toBe(200)
     expect(res?.headers.get('content-type')).toContain('text/event-stream')
@@ -44,7 +51,7 @@ describe('MSW storefront-agent handler', () => {
   it('selects the slow-streaming cassette by request body match', async () => {
     const res = await getResponse(
       handlers,
-      makeRequest({ messages: [{ role: 'user', content: 'go slow please' }] }),
+      makeRequest({ messages: [userMessage('go slow please')] }),
     )
     const text = await res!.text()
     const { frames } = parseSSEFrames(text)
@@ -59,10 +66,18 @@ describe('MSW storefront-agent handler', () => {
     const start = Date.now()
     const res = await getResponse(
       handlers,
-      makeRequest({ messages: [{ role: 'user', content: 'go slow please' }] }),
+      makeRequest({ messages: [userMessage('go slow please')] }),
     )
     await res!.text()
     // slow-streaming sums to ~1130ms total inter-chunk delay
     expect(Date.now() - start).toBeGreaterThanOrEqual(800)
+  })
+
+  it('still matches the legacy { role, content } shape', async () => {
+    const res = await getResponse(
+      handlers,
+      makeRequest({ messages: [{ role: 'user', content: 'show me running shoes' }] }),
+    )
+    expect(res?.status).toBe(200)
   })
 })

@@ -21,6 +21,28 @@ export type CassetteChunk =
   | { type: 'cart'; cart: unknown; delayMs?: number }
   | { type: 'raw'; data: string; delayMs?: number }
 
+/**
+ * Extract the last user message's text from a request body, handling both the
+ * legacy `{ role, content }` shape and the `{ role, parts: [{ type, content }] }`
+ * shape that `@tanstack/ai-client`'s `useChat` puts on the wire.
+ */
+export function lastUserText(body: unknown): string {
+  const messages = (body as { messages?: ReadonlyArray<unknown> }).messages
+  if (!messages?.length) return ''
+  const last = messages[messages.length - 1] as {
+    content?: unknown
+    parts?: ReadonlyArray<{ type?: string; content?: unknown; text?: unknown }>
+  }
+  if (typeof last.content === 'string') return last.content
+  if (!last.parts) return ''
+  return last.parts
+    .filter((p) => p.type === 'text')
+    .map((p) =>
+      typeof p.content === 'string' ? p.content : typeof p.text === 'string' ? p.text : '',
+    )
+    .join('')
+}
+
 export function chunkToSSE(chunk: CassetteChunk): string {
   if (chunk.type === 'raw') return chunk.data.endsWith('\n\n') ? chunk.data : `${chunk.data}\n\n`
   const value =

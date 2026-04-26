@@ -1,4 +1,4 @@
-import type { Cassette } from './types'
+import { lastUserText, type Cassette } from './types'
 
 /**
  * A canned reply for "show me a good running shoe under $160".
@@ -10,11 +10,7 @@ import type { Cassette } from './types'
 export const cassette: Cassette = {
   name: 'happy-search-recommend',
   route: '/api/storefront-agent',
-  match: ({ body }) => {
-    const messages = (body as { messages?: Array<{ content: string }> }).messages
-    const last = messages?.[messages.length - 1]?.content ?? ''
-    return /running|run\b|jog|pegasus/i.test(last)
-  },
+  match: ({ body }) => /running|run\b|jog|pegasus/i.test(lastUserText(body)),
   chunks: [
     { type: 'text', delta: 'Looking for a match', delayMs: 50 },
     {
