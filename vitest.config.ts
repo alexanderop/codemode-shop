@@ -13,18 +13,17 @@ export default defineConfig({
       {
         resolve: { alias: { '#': `${rootDir}src` } },
         test: {
-          name: 'node',
+          name: 'unit',
           environment: 'node',
-          include: ['src/**/*.test.ts', 'test/**/*.test.ts'],
-          exclude: ['src/**/*.dom.test.ts', 'src/**/*.dom.test.tsx', 'node_modules', 'dist'],
+          include: ['test/unit/**/*.test.ts'],
           setupFiles: ['./test/setup-global.ts'],
         },
       },
       {
         resolve: { alias: { '#': `${rootDir}src` } },
         test: {
-          name: 'dom',
-          include: ['src/**/*.dom.test.{ts,tsx}'],
+          name: 'component',
+          include: ['test/component/**/*.test.{ts,tsx}'],
           setupFiles: ['./test/setup-global.ts'],
           browser: {
             enabled: true,
@@ -35,5 +34,23 @@ export default defineConfig({
         },
       },
     ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      exclude: [
+        '**/node_modules/**',
+        '**/*.json',
+        '**/*.test.{ts,tsx}',
+        '**/*.config.{ts,js,mjs}',
+        'test/**',
+        'dist/**',
+        '.claude/**',
+        '.output/**',
+        '.nitro/**',
+        'coverage/**',
+        'playwright-report/**',
+        'test-results/**',
+      ],
+    },
   },
 })

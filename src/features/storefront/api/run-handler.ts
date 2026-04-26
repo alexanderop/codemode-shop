@@ -1,8 +1,8 @@
+import type { StreamChunk } from '@tanstack/ai'
 import { uiStore } from '#/features/storefront/stores/ui-store'
 import { clientCart } from '#/stores/client-cart'
 import type { DetailedCart } from '#/lib/cart'
 import type { Width } from '#/lib/catalog'
-import { parseSSEFrames } from './sse-parser'
 import type { UIEvent } from '#/features/storefront/types/ui-types'
 
 export interface HandlerRequest {
@@ -14,6 +14,31 @@ export interface HandlerRequest {
     quantity?: number
   }
   zipCode?: string
+}
+
+interface ParsedSSE {
+  frames: Array<StreamChunk>
+  remainder: string
+}
+
+function parseSSEFrames(buffer: string): ParsedSSE {
+  const split = buffer.split('\n\n')
+  const remainder = split.pop() ?? ''
+  const frames: Array<StreamChunk> = []
+
+  for (const frame of split) {
+    const dataLine = frame.split('\n').find((l) => l.startsWith('data:'))
+    if (!dataLine) continue
+    const json = dataLine.slice(5).trim()
+    if (!json || json === '[DONE]') continue
+    try {
+      frames.push(JSON.parse(json) as StreamChunk)
+    } catch {
+      continue
+    }
+  }
+
+  return { frames, remainder }
 }
 
 export async function runHandler(req: HandlerRequest, signal?: AbortSignal): Promise<string> {

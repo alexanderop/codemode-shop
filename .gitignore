@@ -13,3 +13,6 @@ __unconfig*
 todos.json
 .claude/settings.local.json
 .skills
+coverage
+playwright-report
+test-results

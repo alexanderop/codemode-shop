@@ -4,7 +4,7 @@
 
 - `pnpm dev` — dev server on `http://localhost:3000`
 - `pnpm build` / `pnpm preview` — production build / preview
-- `pnpm test` — full vitest run; `pnpm test:unit` (node project), `pnpm test:dom` (jsdom project), `pnpm test:e2e` (Playwright)
+- `pnpm test` — full vitest run; `pnpm test:unit` (Node), `pnpm test:component` (Vitest browser via Playwright), `pnpm test:e2e` (Playwright standalone). `pnpm test:coverage` for merged coverage.
 - `pnpm typecheck` — `tsc --noEmit`
 - `pnpm lint` / `pnpm lint:fix` — oxlint
 - `pnpm format` / `pnpm format:check` — oxfmt
