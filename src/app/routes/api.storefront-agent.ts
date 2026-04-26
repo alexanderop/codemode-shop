@@ -1,3 +1,6 @@
+// Raw file-based route: returns an SSE stream consumed by `useChat` (EventSource-shaped).
+// Streaming protocol, not RPC — not a `createServerFn` candidate.
+// See [[brain/architecture/client-server-rpc]].
 import { createFileRoute } from '@tanstack/react-router'
 import { chat, maxIterations, toServerSentEventsStream } from '@tanstack/ai'
 import type { ModelMessage } from '@tanstack/ai'

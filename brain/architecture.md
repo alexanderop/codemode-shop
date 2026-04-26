@@ -16,6 +16,7 @@
 - [[architecture/checkout-flow]]
 - [[architecture/markdown-rendering]]
 - [[architecture/client-server-module-boundary]]
+- [[architecture/client-server-rpc]]
 
 ## Testing
 

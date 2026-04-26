@@ -1,3 +1,6 @@
+// Raw file-based route: returns a multi-frame ReadableStream (storefront:ui +
+// optional cart:update + text frame) parsed manually by `run-handler.ts`.
+// Streaming protocol, not RPC — stays raw. See [[brain/architecture/client-server-rpc]].
 import { createFileRoute } from '@tanstack/react-router'
 import { addToCart, getCartDetailed, type DetailedCart } from '#/lib/cart'
 import { PRODUCT_BY_ID, findStock, shippingEtaDays, type Width } from '#/lib/catalog'
