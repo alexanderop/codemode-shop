@@ -1,3 +1,8 @@
+// Raw file-based route today: simple session-scoped DELETE for skill cleanup.
+// This one is in-app RPC and could plausibly migrate to `createServerFn` later;
+// kept as a REST handler for now because the DELETE-with-path-param shape maps
+// cleanly and there is no client-side type pressure. Revisit when a second skill
+// mutation appears. See [[brain/architecture/client-server-rpc]].
 import { createFileRoute } from '@tanstack/react-router'
 import { withSession } from '#/lib/session'
 import { sessionContext } from '#/lib/session-context'
