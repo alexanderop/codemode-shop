@@ -69,9 +69,16 @@ Typed `Cassette` recordings (e.g. `test/cassettes/happy-search-recommend.ts`, `t
 
 ## Component tests (Vitest 4 browser mode + POMs)
 
-- `await render(...)` is **async**.
+- `await render(...)` is **async** — easy miss when porting from older Vitest / RTL.
 - Locators **auto-retry**, so `waitFor` is gone. Use `await expect.element(locator).toBeVisible()` directly.
 - No `fireEvent` — use the locator API.
-- **Page Object Models live as `*.page.tsx`** in the same `test/component/` folder as the test file. They expose factory functions for prop fixtures and locator/assertion helpers (e.g. `expectIdle`, `expectLoading`, `expectDone`).
+- **Page Object Models live as `*.page.tsx`** in the same `test/component/` folder as the test file. They expose factory functions for prop fixtures (e.g. `*Props`) and locator/assertion helpers (e.g. `expectIdle`, `expectLoading`, `expectDone`, `expectRetry`).
 
-See [[conventions/typescript-style/tests]] for AAA structure and naming.
+## Versions and migration
+
+Current pins (verify against `package.json` if migrating):
+
+- `vitest@^4` + `@vitest/browser-playwright@^4` — browser mode uses the Playwright provider directly.
+- `vitest-browser-react` for the `render()` import.
+- `playwright@^1.59` for `test:e2e`.
+- **No `@testing-library/*`, no `jsdom`** — they were removed when moving to v4 browser mode. Don't reintroduce them; the framework's locator API is the supported surface.

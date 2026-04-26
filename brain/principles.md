@@ -16,6 +16,7 @@
 - [[principles/make-operations-idempotent]]
 - [[principles/migrate-callers-then-delete-legacy-apis]]
 - [[principles/prefer-one-source-of-truth]]
+- [[principles/subscribe-dont-snapshot]]
 - [[principles/serialize-shared-state-mutations]]
 
 ## Verification

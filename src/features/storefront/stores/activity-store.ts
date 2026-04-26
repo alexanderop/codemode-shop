@@ -4,6 +4,8 @@ import type {
   CanvasSnapshot,
   ConsoleLog,
   ExternalCall,
+  SkillRegistration,
+  SkillReplayActivity,
   TerminalError,
   TurnActivity,
 } from '#/features/storefront/types/activity-types'
@@ -23,7 +25,30 @@ function emptyTurn(turnId: string): TurnActivity {
     calls: [],
     logs: [],
     priorAttempts: [],
+    replayedSkills: [],
   }
+}
+
+function activeSkill(turn: TurnActivity): SkillReplayActivity | undefined {
+  for (let i = turn.replayedSkills.length - 1; i >= 0; i--) {
+    if (turn.replayedSkills[i].endedAt == null) return turn.replayedSkills[i]
+  }
+  return undefined
+}
+
+function pairSkillResult(
+  skills: Array<SkillReplayActivity>,
+  name: string,
+  patch: Partial<Pick<SkillReplayActivity, 'result' | 'error' | 'endedAt'>>,
+): Array<SkillReplayActivity> {
+  const next = skills.slice()
+  for (let i = next.length - 1; i >= 0; i--) {
+    if (next[i].name === name && next[i].endedAt == null) {
+      next[i] = { ...next[i], ...patch }
+      return next
+    }
+  }
+  return next
 }
 
 function classifyKind(fn: string): 'data' | 'render' {
@@ -88,18 +113,28 @@ function assignGroup(calls: Array<ExternalCall>, startedAt: number): string {
   return `g-${startedAt}-${Math.random().toString(36).slice(2, 6)}`
 }
 
+function allCalls(turn: TurnActivity): Array<ExternalCall> {
+  if (turn.replayedSkills.length === 0) return turn.calls
+  const out = turn.calls.slice()
+  for (const s of turn.replayedSkills) out.push(...s.calls)
+  return out
+}
+
 function computeStatus(turn: TurnActivity): TurnActivity['status'] {
   if (turn.endedAt == null) {
     if (turn.terminalError) return 'failed'
-    const hasRender = turn.calls.some((c) => c.kind === 'render')
-    const hasData = turn.calls.some((c) => c.kind === 'data')
+    const calls = allCalls(turn)
+    const hasRender = calls.some((c) => c.kind === 'render')
+    const hasData = calls.some((c) => c.kind === 'data')
     if (hasRender) return 'rendering'
-    if (hasData || turn.codeLength != null) return 'running'
+    const hasSkill = turn.replayedSkills.length > 0
+    if (hasData || turn.codeLength != null || hasSkill) return 'running'
     return 'writing'
   }
   if (turn.terminalError) return 'failed'
-  const anyErr = turn.calls.some((c) => c.error)
-  return anyErr ? 'warned' : 'succeeded'
+  const anyCallErr = allCalls(turn).some((c) => c.error)
+  const anySkillErr = turn.replayedSkills.some((s) => s.error)
+  return anyCallErr || anySkillErr ? 'warned' : 'succeeded'
 }
 
 type RecordHandler = (turnId: string, data: Record<string, unknown>) => void
@@ -125,33 +160,108 @@ const recordHandlers: Record<string, RecordHandler> = {
     const fn = data.function as string
     const ts = (data.timestamp as number | undefined) ?? Date.now()
     mutateTurn(turnId, (turn) => {
-      const groupId = assignGroup(turn.calls, ts)
+      const skill = activeSkill(turn)
+      const targetCalls = skill ? skill.calls : turn.calls
+      const groupId = assignGroup(targetCalls, ts)
       const call: ExternalCall = {
-        id: `${turnId}-${turn.calls.length}`,
+        id: `${turnId}-${skill ? `s-${skill.id}-` : ''}${targetCalls.length}`,
         function: fn,
         kind: classifyKind(fn),
         args: data.args,
         startedAt: ts,
         groupId,
       }
-      return { ...turn, calls: [...turn.calls, call] }
+      if (!skill) return { ...turn, calls: [...turn.calls, call] }
+      return {
+        ...turn,
+        replayedSkills: turn.replayedSkills.map((s) =>
+          s.id === skill.id ? { ...s, calls: [...s.calls, call] } : s,
+        ),
+      }
     })
   },
   'code_mode:external_result': (turnId, data) => {
     const fn = data.function as string
     const duration = (data.duration as number | undefined) ?? 0
-    mutateTurn(turnId, (turn) => ({
-      ...turn,
-      calls: pairResult(turn.calls, fn, data.result, duration, undefined),
-    }))
+    mutateTurn(turnId, (turn) => {
+      const skill = activeSkill(turn)
+      if (!skill) {
+        return { ...turn, calls: pairResult(turn.calls, fn, data.result, duration, undefined) }
+      }
+      return {
+        ...turn,
+        replayedSkills: turn.replayedSkills.map((s) =>
+          s.id === skill.id
+            ? { ...s, calls: pairResult(s.calls, fn, data.result, duration, undefined) }
+            : s,
+        ),
+      }
+    })
   },
   'code_mode:external_error': (turnId, data) => {
     const fn = data.function as string
     const duration = (data.duration as number | undefined) ?? 0
-    mutateTurn(turnId, (turn) => ({
-      ...turn,
-      calls: pairResult(turn.calls, fn, undefined, duration, shortError(data.error)),
-    }))
+    mutateTurn(turnId, (turn) => {
+      const skill = activeSkill(turn)
+      if (!skill) {
+        return {
+          ...turn,
+          calls: pairResult(turn.calls, fn, undefined, duration, shortError(data.error)),
+        }
+      }
+      return {
+        ...turn,
+        replayedSkills: turn.replayedSkills.map((s) =>
+          s.id === skill.id
+            ? { ...s, calls: pairResult(s.calls, fn, undefined, duration, shortError(data.error)) }
+            : s,
+        ),
+      }
+    })
+  },
+  'code_mode:skill_call': (turnId, data) => {
+    const name = data.skill as string
+    const ts = (data.timestamp as number | undefined) ?? Date.now()
+    mutateTurn(turnId, (turn) => {
+      const replay: SkillReplayActivity = {
+        id: `${turnId}-skill-${turn.replayedSkills.length}`,
+        name,
+        input: data.input,
+        startedAt: ts,
+        calls: [],
+      }
+      return { ...turn, replayedSkills: [...turn.replayedSkills, replay] }
+    })
+  },
+  'code_mode:skill_result': (turnId, data) => {
+    const name = data.skill as string
+    const duration = (data.duration as number | undefined) ?? 0
+    mutateTurn(turnId, (turn) => {
+      const skill = turn.replayedSkills.find((s) => s.name === name && s.endedAt == null)
+      const endedAt = (skill?.startedAt ?? Date.now()) + duration
+      return {
+        ...turn,
+        replayedSkills: pairSkillResult(turn.replayedSkills, name, {
+          result: data.result,
+          endedAt,
+        }),
+      }
+    })
+  },
+  'code_mode:skill_error': (turnId, data) => {
+    const name = data.skill as string
+    const duration = (data.duration as number | undefined) ?? 0
+    mutateTurn(turnId, (turn) => {
+      const skill = turn.replayedSkills.find((s) => s.name === name && s.endedAt == null)
+      const endedAt = (skill?.startedAt ?? Date.now()) + duration
+      return {
+        ...turn,
+        replayedSkills: pairSkillResult(turn.replayedSkills, name, {
+          error: shortError(data.error),
+          endedAt,
+        }),
+      }
+    })
   },
   'code_mode:console': (turnId, data) => {
     const log: ConsoleLog = {
@@ -245,6 +355,11 @@ export const activityStore = {
   setReturnValue: (turnId: string, value: unknown) => {
     if (state.byTurnId[turnId]?.returnValue === value) return
     mutateTurn(turnId, (turn) => ({ ...turn, returnValue: value }))
+    emit()
+  },
+
+  setSkillRegistered: (turnId: string, registration: SkillRegistration) => {
+    mutateTurn(turnId, (turn) => ({ ...turn, skillRegistered: registration }))
     emit()
   },
 

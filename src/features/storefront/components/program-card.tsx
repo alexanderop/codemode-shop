@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { cn } from '#/lib/utils'
 import { HighlightedCode } from '#/features/storefront/components/highlighted-code'
+import { SkillRegisteredBadge } from '#/features/storefront/components/skill-card'
 import type {
   ExternalCall,
   TurnActivity,
@@ -520,6 +521,7 @@ export function ProgramCard({
               <Sparkles className="h-3.5 w-3.5 shrink-0 opacity-70" />
               <StatusIcon status={turn.status} />
               <span className="flex-1 truncate font-medium">{labelFor(turn)}</span>
+              {turn.skillRegistered && <SkillRegisteredBadge name={turn.skillRegistered.name} />}
               {hasAnything && (
                 <ChevronDown
                   className={cn('h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')}

@@ -1,0 +1,167 @@
+import { Mermaid } from '#/features/docs/components/mermaid'
+
+# Code mode
+
+_How do you let an LLM run a small store, without paying the latency tax of a tool call per row?_
+
+<Mermaid
+  chart={`
+sequenceDiagram
+  participant U as User
+  participant M as Model
+  participant T as Tools
+
+  rect rgba(239, 68, 68, 0.08)
+    note over U,T: Tool calling — many round trips
+    U->>M: ask
+    M->>T: searchProducts
+    T-->>M: ids
+    M->>T: getProduct (×3, serial)
+    T-->>M: products
+    M->>T: getStock (×3, serial)
+    T-->>M: stock
+    M->>T: getReviews (×3, serial)
+    T-->>M: reviews
+    M-->>U: answer
+  end
+
+  rect rgba(94, 106, 210, 0.10)
+    note over U,T: Code mode — one round trip
+    U->>M: ask
+    M->>T: execute_typescript(code)
+    note over T: code does Promise.all<br/>and ranks in JS
+    T-->>M: result
+    M-->>U: answer
+  end
+`}
+/>
+
+## Tool calling, the obvious way
+
+Imagine the user asks: _"Find me the top three black running shoes under $150 in size 10."_
+
+A normal tool-calling agent answers like this:
+
+1. Call `searchProducts({ category: 'Running', colors: ['black'], maxPrice: 150, size: '10' })`. Get back a list of product IDs. _Round-trip 1._
+2. For each of the top 3 IDs, call `getProduct(id)` — three serial round-trips, because the model has to see each result before deciding the next call. _Round-trips 2–4._
+3. For each product, call `getStockAndShipping`, then `getReviewSummary`. _Round-trips 5–10._
+4. Have the model rank them in its head, write the comparison, suggest a CTA. _Round-trips 11+._
+
+Three problems compound:
+
+- **Latency.** Each round-trip is a network hop and a generation. Even with prompt caching, this stings.
+- **Tokens.** Every intermediate result re-enters the context window on the next request.
+- **Math.** When the model has to "compute" `rating / price` for ranking, it pattern-matches a number. It doesn't actually divide.
+
+## The code-mode answer
+
+Code mode gives the LLM exactly **one** tool: `execute_typescript`. The model writes a short TypeScript program. The program runs in a sandboxed isolate that has typed access to the store's internal API plus a closed vocabulary of UI primitives. Only the program's return value flows back through the model.
+
+Here is the actual code Claude emits when you ask the storekeeper for "black running shoes under $150 in size 10":
+
+```typescript
+await ui_showLoading({ id: 'l', label: 'Searching black running shoes…' })
+
+const { productIds } = await external_searchProducts({
+  category: 'Running',
+  colors: ['black'],
+  maxPrice: 150,
+  size: '10',
+})
+
+const rows = await Promise.all(
+  productIds.slice(0, 3).map(async (id) => {
+    const [p, ship, rev] = await Promise.all([
+      external_getProduct({ id }),
+      external_getStockAndShipping({ productId: id, size: '10', zipCode: '94107' }),
+      external_getReviewSummary({ productId: id }),
+    ])
+    return { p, ship, rev }
+  }),
+)
+
+rows.sort((a, b) => b.rev.averageRating / b.p.price - a.rev.averageRating / a.p.price)
+
+await ui_remove({ id: 'l' })
+
+for (const [i, { p, ship, rev }] of rows.entries()) {
+  const cardId = `card-${p.id}`
+  await ui_addProductCard({
+    id: cardId,
+    productId: p.id,
+    name: p.name,
+    brand: p.brand,
+    price: p.price,
+    imageUrl: p.imageUrl,
+    rating: rev.averageRating,
+    color: p.color,
+    highlight: i === 0,
+  })
+  await ui_addStockPill({
+    id: `pill-${p.id}`,
+    parentId: cardId,
+    inStock: ship.inStock,
+    quantity: ship.quantity,
+    arrivesBy: ship.arrivesBy,
+    shippingCost: ship.shippingCost,
+  })
+  await ui_addReviewBar({
+    id: `rev-${p.id}`,
+    parentId: cardId,
+    rating: rev.averageRating,
+    reviewCount: rev.reviewCount,
+    praise: rev.commonPraise,
+    complaints: rev.commonComplaints,
+  })
+}
+
+const best = rows[0]
+await ui_addCTA({
+  id: 'cta',
+  label: `Add ${best.p.name} to cart`,
+  handlerId: 'addToCart',
+  payload: { productId: best.p.id, size: '10', quantity: 1 },
+  variant: 'primary',
+})
+
+return `${best.p.brand} ${best.p.name} — best value at $${best.p.price}.`
+```
+
+**One generation. ~15 host tool executions. Zero extra round-trips through the model.**
+
+Notice three things in the code:
+
+1. `Promise.all` over the three product IDs. The fetches happen in parallel, not serially.
+2. `rows.sort((a, b) => b.rev.averageRating / b.p.price - …)` — actual division in JavaScript, not vibes-based ranking by the LLM.
+3. The `ui_*` calls are interleaved with data fetches and the loading indicator, so cards stream into the drawer as soon as their data resolves.
+
+## Why this is a sane idea
+
+LLMs are good at writing TypeScript. They have a great deal of it in their training data, they understand `Promise.all` and `.reduce()`, and they're comfortable with async control flow. They are bad at orchestrating one-shot tool calls efficiently and they are bad at arithmetic. Code mode plays to the strength and removes the weakness.
+
+The token economics are stark. The Cloudflare team showed a 99.9% reduction on their full-API MCP server (1.17M tokens of tool definitions collapsed to ~1,000 tokens with two tools, `search` and `execute`). For a store with eight tools and a UI vocabulary, the win is smaller in absolute terms but the same in shape: define your tools once as type stubs in the system prompt, then let the model write code against them.
+
+## The sandbox
+
+The sandbox in this project is **`@tanstack/ai-isolate-node`**, which uses [`isolated-vm`](https://github.com/laverdet/isolated-vm) under the hood. That's a V8 isolate — a brand-new, separate JavaScript heap with no access to the host process. The sandbox sees only the `external_*` and `ui_*` functions you bind in. No `fetch`, no `process`, no `require`. If the model writes `while (true) {}`, a configurable timeout kills the script.
+
+Three drivers ship with TanStack: Node (`isolated-vm`, fastest), QuickJS (WASM, runs in browsers and edge), and Cloudflare Workers (run on the edge). This project picks Node because it's the simplest path on a developer machine.
+
+## What about errors?
+
+The host always wraps the program in a try/catch. If it throws, the error message comes back to the model as the tool result, and the model has one chance to retry. In practice, with typed function stubs in the system prompt and a small enough surface area, retries are rare. The eval harness in `@tanstack/ai-code-mode-skills` reports `claude-haiku-4-5` scoring near top tier on this style of task.
+
+## What events you'll see while it runs
+
+While the program executes, code mode emits a live stream of custom SSE events that drive the four-stage pipeline you see in the drawer:
+
+- `code_mode:execution_started` — the sandbox kicks off
+- `code_mode:external_call` — before each `external_*` runs
+- `code_mode:external_result` / `code_mode:external_error` — after each one
+- `code_mode:console` — for any `console.log` from inside the sandbox
+
+Plus this project's own `storefront:ui` events for every `ui_*` call. All of them ride the same SSE stream and reach the React app via `useChat({ onCustomEvent })`. See [Sandbox & events](/docs/sandbox#the-built-in-event-stream) for the full payload shapes and how they connect to the drawer's live timeline.
+
+## Next: how the UI primitives work
+
+Read [UI vocabulary](/docs/ui-vocabulary) for the SSE protocol that turns `ui_*` calls into rendered React components.

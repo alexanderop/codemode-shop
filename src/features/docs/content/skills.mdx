@@ -1,0 +1,103 @@
+import { Mermaid } from '#/features/docs/components/mermaid'
+
+# Skills
+
+The first time a shopper asks _"any wide-width trail shoes I could get by Friday?"_, code mode writes a small program. The second time, code mode shouldn't have to rewrite that program — it should just run the saved one. That's what `@tanstack/ai-code-mode-skills` does, and this project uses it.
+
+A **skill** is a successful zero-arg TypeScript snippet from a previous turn, saved with a name, a description, an input schema, and an output schema. On the next turn, the host loads the catalog of saved skills and exposes each one as a regular tool whose description starts with `[SKILL]`. The model picks one if it matches the request, no `execute_typescript` round-trip needed.
+
+## The lifecycle
+
+<Mermaid
+  chart={`
+sequenceDiagram
+  participant U as User
+  participant M as Model
+  participant T as Tools
+  participant S as SkillStorage<br/>(per session)
+
+  rect rgba(94,106,210,0.10)
+    note over U,S: Turn 1 — first time the question is asked
+    U->>M: "wide-width trail shoes by Friday?"
+    M->>T: execute_typescript(code)
+    T-->>M: result + ui_* events
+    M->>T: register_skill(name, description, code, schemas)
+    T->>S: classifySkillCode → save
+    S-->>T: ok
+    M-->>U: answer
+  end
+
+  rect rgba(76,183,130,0.10)
+    note over U,S: Turn N — same shopper, similar question
+    U->>M: "any wide trail shoes Friday-ready?"
+    note over M: system prompt now lists<br/>[SKILL] wide_trail_friday
+    M->>T: wide_trail_friday()
+    T->>S: load skill code
+    S-->>T: code
+    T->>T: run in isolate (same external_* + ui_*)
+    T-->>M: result + ui_* events
+    M-->>U: answer
+  end
+`}
+/>
+
+## How a skill gets registered
+
+`register_skill` is its own tool, separate from `execute_typescript`. The system prompt instructs the model to call it _once per turn_ after a successful `execute_typescript`, only when the pattern is likely to recur:
+
+```typescript
+register_skill({
+  name: 'wide_trail_friday',
+  description: 'Find wide-width trail shoes that arrive by Friday for shopper in 94107.',
+  code: '/* zero-arg async function body */',
+  inputSchema: '{}',
+  outputSchema: '{ "type": "string" }',
+  usageHints: ['shopper preference: wide width', 'shopper zip: 94107'],
+})
+```
+
+The host validates and stores. Three guardrails before saving:
+
+1. **Read-only static check.** `classifySkillCode` rejects any code that mentions `external_addToCart`, `external_removeFromCart`, `external_setCartQuantity`, `external_clearCart`, `external_placeOrder`, `external_getOrder`, or any dynamic dispatch primitive (`eval`, `Function`, `import()`, computed `external_*` access). Skills can only fetch and render — never mutate. This is enforced at registration time, not at run time.
+2. **Schema parse.** `inputSchema` and `outputSchema` are parsed as JSON. If they aren't valid JSON Schema objects, registration fails.
+3. **Name uniqueness.** A skill with a duplicate name is rejected with a hint to pick a different one.
+
+When the skill passes, it's persisted via `createFileSkillStorage` to `.skills/users/<sessionId>/<name>.json` and the host emits a `skill:registered` SSE event so the drawer can show feedback.
+
+## How a saved skill becomes a tool
+
+At the start of each turn:
+
+1. **Load.** `getSkillStorageForSession(sessionId).loadAll()` reads every saved skill for this shopper.
+2. **List in the system prompt.** `buildSkillCatalogPrompt` injects a bullet list — `` - `wide_trail_friday` — Find wide-width trail shoes that arrive by Friday… `` — under a `## Saved shortcuts (skill memoization)` heading.
+3. **Wrap as tools.** `buildStorefrontSkillTools` calls `skillToTool` from `@tanstack/ai-code-mode-skills` for each skill, binding the same `external_*` (catalog, read-only) plus `ui_*` (full UI vocabulary). The result is an array of `[SKILL]`-prefixed tools alongside `execute_typescript` and `register_skill`.
+4. **Run in the same sandbox.** When the model calls one of these tools, the wrapper runs the saved code inside a fresh `isolated-vm` context — the same way `execute_typescript` does, but the body is the saved program, not freshly written code.
+
+The skill body has no parameters. Concrete shopper constants (zip, size, brand preferences) are baked in at registration time. That's a deliberate constraint: it keeps schemas trivial and makes the model commit to a specific recurring pattern instead of trying to invent a parameterized DSL.
+
+## Per-session, per-shopper
+
+Storage is scoped by `sessionId`. The skill folder is `./.skills/users/<sessionId>/`. Two consequences:
+
+- Skills are private to the shopper. _My_ "wide_trail_friday" can't leak into _your_ session, even if you ask the same question.
+- Wiping the cookie (or starting an incognito session) gives the model a clean slate, which is useful for testing.
+
+There's a `DELETE /api/skills/:name` endpoint (`src/app/routes/api.skills.$name.ts`) that lets a session prune a single skill, cache included.
+
+## Trust
+
+Upstream `@tanstack/ai-code-mode-skills` ships a trust-progression model — skills start `untrusted`, become `provisional` after some successful runs, then `trusted`. This project bypasses that progression and saves every passing skill as `trustLevel: 'trusted'` immediately. The reasoning: the static `classifySkillCode` gate already enforces the read-only invariant before any code lands on disk, and the sandbox enforces it again at run time. Adding a runtime trust ladder on top would add ceremony without adding safety.
+
+If you want to wire trust progression back in (e.g., gate skills behind an explicit user approval before they appear as tools), `register-skill-tool.ts` is the one place to change.
+
+## Why skills are interesting beyond perf
+
+Two things shift once skills exist.
+
+First, **the agent gets cheaper over time, per shopper**. The first ten queries cost a full `execute_typescript` + a generation; the eleventh might match an existing skill and cost one tool call. Cloudflare's framing for their MCP server applies here too: the tool surface stays small but the effective capabilities grow with use.
+
+Second, **the model gets to commit to a pattern**. Without skills, every turn re-derives the same logic and may pick a slightly different variant ("I'll sort by rating this time, by review count next time"). With skills, the first working variant becomes _the_ variant. Stability is a feature.
+
+## Next
+
+Read [Architecture](/docs/architecture) for the file-by-file walkthrough, including where skills sit in the request flow.

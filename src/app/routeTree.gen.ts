@@ -9,10 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as DocsRouteImport } from './routes/docs'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DocsIndexRouteImport } from './routes/docs.index'
 import { Route as OrdersOrderIdRouteImport } from './routes/orders.$orderId'
+import { Route as DocsUiVocabularyRouteImport } from './routes/docs.ui-vocabulary'
+import { Route as DocsToolsRouteImport } from './routes/docs.tools'
+import { Route as DocsTanstackAiRouteImport } from './routes/docs.tanstack-ai'
+import { Route as DocsSkillsRouteImport } from './routes/docs.skills'
+import { Route as DocsSandboxRouteImport } from './routes/docs.sandbox'
+import { Route as DocsCodeModeRouteImport } from './routes/docs.code-mode'
+import { Route as DocsArchitectureRouteImport } from './routes/docs.architecture'
 import { Route as ApiStorefrontHandlerRouteImport } from './routes/api.storefront-handler'
 import { Route as ApiStorefrontAgentRouteImport } from './routes/api.storefront-agent'
 import { Route as ApiCheckoutRouteImport } from './routes/api.checkout'
@@ -20,6 +29,11 @@ import { Route as ApiCartRouteImport } from './routes/api.cart'
 import { Route as ApiSkillsNameRouteImport } from './routes/api.skills.$name'
 import { Route as ApiOrdersOrderIdRouteImport } from './routes/api.orders.$orderId'
 
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CheckoutRoute = CheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
@@ -35,10 +49,50 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DocsRoute,
+} as any)
 const OrdersOrderIdRoute = OrdersOrderIdRouteImport.update({
   id: '/orders/$orderId',
   path: '/orders/$orderId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DocsUiVocabularyRoute = DocsUiVocabularyRouteImport.update({
+  id: '/ui-vocabulary',
+  path: '/ui-vocabulary',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsToolsRoute = DocsToolsRouteImport.update({
+  id: '/tools',
+  path: '/tools',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsTanstackAiRoute = DocsTanstackAiRouteImport.update({
+  id: '/tanstack-ai',
+  path: '/tanstack-ai',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsSkillsRoute = DocsSkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsSandboxRoute = DocsSandboxRouteImport.update({
+  id: '/sandbox',
+  path: '/sandbox',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsCodeModeRoute = DocsCodeModeRouteImport.update({
+  id: '/code-mode',
+  path: '/code-mode',
+  getParentRoute: () => DocsRoute,
+} as any)
+const DocsArchitectureRoute = DocsArchitectureRouteImport.update({
+  id: '/architecture',
+  path: '/architecture',
+  getParentRoute: () => DocsRoute,
 } as any)
 const ApiStorefrontHandlerRoute = ApiStorefrontHandlerRouteImport.update({
   id: '/api/storefront-handler',
@@ -75,11 +129,20 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/docs': typeof DocsRouteWithChildren
   '/api/cart': typeof ApiCartRoute
   '/api/checkout': typeof ApiCheckoutRoute
   '/api/storefront-agent': typeof ApiStorefrontAgentRoute
   '/api/storefront-handler': typeof ApiStorefrontHandlerRoute
+  '/docs/architecture': typeof DocsArchitectureRoute
+  '/docs/code-mode': typeof DocsCodeModeRoute
+  '/docs/sandbox': typeof DocsSandboxRoute
+  '/docs/skills': typeof DocsSkillsRoute
+  '/docs/tanstack-ai': typeof DocsTanstackAiRoute
+  '/docs/tools': typeof DocsToolsRoute
+  '/docs/ui-vocabulary': typeof DocsUiVocabularyRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/docs/': typeof DocsIndexRoute
   '/api/orders/$orderId': typeof ApiOrdersOrderIdRoute
   '/api/skills/$name': typeof ApiSkillsNameRoute
 }
@@ -91,7 +154,15 @@ export interface FileRoutesByTo {
   '/api/checkout': typeof ApiCheckoutRoute
   '/api/storefront-agent': typeof ApiStorefrontAgentRoute
   '/api/storefront-handler': typeof ApiStorefrontHandlerRoute
+  '/docs/architecture': typeof DocsArchitectureRoute
+  '/docs/code-mode': typeof DocsCodeModeRoute
+  '/docs/sandbox': typeof DocsSandboxRoute
+  '/docs/skills': typeof DocsSkillsRoute
+  '/docs/tanstack-ai': typeof DocsTanstackAiRoute
+  '/docs/tools': typeof DocsToolsRoute
+  '/docs/ui-vocabulary': typeof DocsUiVocabularyRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/docs': typeof DocsIndexRoute
   '/api/orders/$orderId': typeof ApiOrdersOrderIdRoute
   '/api/skills/$name': typeof ApiSkillsNameRoute
 }
@@ -100,11 +171,20 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
+  '/docs': typeof DocsRouteWithChildren
   '/api/cart': typeof ApiCartRoute
   '/api/checkout': typeof ApiCheckoutRoute
   '/api/storefront-agent': typeof ApiStorefrontAgentRoute
   '/api/storefront-handler': typeof ApiStorefrontHandlerRoute
+  '/docs/architecture': typeof DocsArchitectureRoute
+  '/docs/code-mode': typeof DocsCodeModeRoute
+  '/docs/sandbox': typeof DocsSandboxRoute
+  '/docs/skills': typeof DocsSkillsRoute
+  '/docs/tanstack-ai': typeof DocsTanstackAiRoute
+  '/docs/tools': typeof DocsToolsRoute
+  '/docs/ui-vocabulary': typeof DocsUiVocabularyRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
+  '/docs/': typeof DocsIndexRoute
   '/api/orders/$orderId': typeof ApiOrdersOrderIdRoute
   '/api/skills/$name': typeof ApiSkillsNameRoute
 }
@@ -114,11 +194,20 @@ export interface FileRouteTypes {
     | '/'
     | '/cart'
     | '/checkout'
+    | '/docs'
     | '/api/cart'
     | '/api/checkout'
     | '/api/storefront-agent'
     | '/api/storefront-handler'
+    | '/docs/architecture'
+    | '/docs/code-mode'
+    | '/docs/sandbox'
+    | '/docs/skills'
+    | '/docs/tanstack-ai'
+    | '/docs/tools'
+    | '/docs/ui-vocabulary'
     | '/orders/$orderId'
+    | '/docs/'
     | '/api/orders/$orderId'
     | '/api/skills/$name'
   fileRoutesByTo: FileRoutesByTo
@@ -130,7 +219,15 @@ export interface FileRouteTypes {
     | '/api/checkout'
     | '/api/storefront-agent'
     | '/api/storefront-handler'
+    | '/docs/architecture'
+    | '/docs/code-mode'
+    | '/docs/sandbox'
+    | '/docs/skills'
+    | '/docs/tanstack-ai'
+    | '/docs/tools'
+    | '/docs/ui-vocabulary'
     | '/orders/$orderId'
+    | '/docs'
     | '/api/orders/$orderId'
     | '/api/skills/$name'
   id:
@@ -138,11 +235,20 @@ export interface FileRouteTypes {
     | '/'
     | '/cart'
     | '/checkout'
+    | '/docs'
     | '/api/cart'
     | '/api/checkout'
     | '/api/storefront-agent'
     | '/api/storefront-handler'
+    | '/docs/architecture'
+    | '/docs/code-mode'
+    | '/docs/sandbox'
+    | '/docs/skills'
+    | '/docs/tanstack-ai'
+    | '/docs/tools'
+    | '/docs/ui-vocabulary'
     | '/orders/$orderId'
+    | '/docs/'
     | '/api/orders/$orderId'
     | '/api/skills/$name'
   fileRoutesById: FileRoutesById
@@ -151,6 +257,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
+  DocsRoute: typeof DocsRouteWithChildren
   ApiCartRoute: typeof ApiCartRoute
   ApiCheckoutRoute: typeof ApiCheckoutRoute
   ApiStorefrontAgentRoute: typeof ApiStorefrontAgentRoute
@@ -162,6 +269,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/checkout': {
       id: '/checkout'
       path: '/checkout'
@@ -183,12 +297,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/': {
+      id: '/docs/'
+      path: '/'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof DocsRoute
+    }
     '/orders/$orderId': {
       id: '/orders/$orderId'
       path: '/orders/$orderId'
       fullPath: '/orders/$orderId'
       preLoaderRoute: typeof OrdersOrderIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/docs/ui-vocabulary': {
+      id: '/docs/ui-vocabulary'
+      path: '/ui-vocabulary'
+      fullPath: '/docs/ui-vocabulary'
+      preLoaderRoute: typeof DocsUiVocabularyRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/tools': {
+      id: '/docs/tools'
+      path: '/tools'
+      fullPath: '/docs/tools'
+      preLoaderRoute: typeof DocsToolsRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/tanstack-ai': {
+      id: '/docs/tanstack-ai'
+      path: '/tanstack-ai'
+      fullPath: '/docs/tanstack-ai'
+      preLoaderRoute: typeof DocsTanstackAiRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/skills': {
+      id: '/docs/skills'
+      path: '/skills'
+      fullPath: '/docs/skills'
+      preLoaderRoute: typeof DocsSkillsRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/sandbox': {
+      id: '/docs/sandbox'
+      path: '/sandbox'
+      fullPath: '/docs/sandbox'
+      preLoaderRoute: typeof DocsSandboxRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/code-mode': {
+      id: '/docs/code-mode'
+      path: '/code-mode'
+      fullPath: '/docs/code-mode'
+      preLoaderRoute: typeof DocsCodeModeRouteImport
+      parentRoute: typeof DocsRoute
+    }
+    '/docs/architecture': {
+      id: '/docs/architecture'
+      path: '/architecture'
+      fullPath: '/docs/architecture'
+      preLoaderRoute: typeof DocsArchitectureRouteImport
+      parentRoute: typeof DocsRoute
     }
     '/api/storefront-handler': {
       id: '/api/storefront-handler'
@@ -235,10 +405,35 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DocsRouteChildren {
+  DocsArchitectureRoute: typeof DocsArchitectureRoute
+  DocsCodeModeRoute: typeof DocsCodeModeRoute
+  DocsSandboxRoute: typeof DocsSandboxRoute
+  DocsSkillsRoute: typeof DocsSkillsRoute
+  DocsTanstackAiRoute: typeof DocsTanstackAiRoute
+  DocsToolsRoute: typeof DocsToolsRoute
+  DocsUiVocabularyRoute: typeof DocsUiVocabularyRoute
+  DocsIndexRoute: typeof DocsIndexRoute
+}
+
+const DocsRouteChildren: DocsRouteChildren = {
+  DocsArchitectureRoute: DocsArchitectureRoute,
+  DocsCodeModeRoute: DocsCodeModeRoute,
+  DocsSandboxRoute: DocsSandboxRoute,
+  DocsSkillsRoute: DocsSkillsRoute,
+  DocsTanstackAiRoute: DocsTanstackAiRoute,
+  DocsToolsRoute: DocsToolsRoute,
+  DocsUiVocabularyRoute: DocsUiVocabularyRoute,
+  DocsIndexRoute: DocsIndexRoute,
+}
+
+const DocsRouteWithChildren = DocsRoute._addFileChildren(DocsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
+  DocsRoute: DocsRouteWithChildren,
   ApiCartRoute: ApiCartRoute,
   ApiCheckoutRoute: ApiCheckoutRoute,
   ApiStorefrontAgentRoute: ApiStorefrontAgentRoute,

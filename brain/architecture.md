@@ -1,5 +1,7 @@
 # Architecture
 
+- [[architecture/diagrams]] — visual map (C4 Context + Container + flows)
+
 ## This app
 
 - [[architecture/code-mode]]
@@ -16,6 +18,7 @@
 - [[architecture/checkout-flow]]
 - [[architecture/markdown-rendering]]
 - [[architecture/client-server-module-boundary]]
+- [[architecture/feature-boundaries]]
 
 ## Testing
 

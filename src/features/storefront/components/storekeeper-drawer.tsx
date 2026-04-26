@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, Send, Sparkles, Square } from 'lucide-react'
+import { FileText, Send, Sparkles, Square, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useChat, fetchServerSentEvents } from '@tanstack/ai-react'
 import { parsePartialJSON } from '@tanstack/ai'
@@ -19,6 +19,7 @@ import { cn } from '#/lib/utils'
 import { StorefrontCanvas } from '#/features/storefront/components/storefront-canvas'
 import { FrozenCanvas } from '#/features/storefront/components/frozen-canvas'
 import { ProgramCard, PriorAttemptChip } from '#/features/storefront/components/program-card'
+import { SkillCard } from '#/features/storefront/components/skill-card'
 import { InlineErrorCard } from '#/features/storefront/components/inline-error-card'
 import { SystemPromptSheet } from '#/features/storefront/components/system-prompt-sheet'
 import { useQueryClient } from '@tanstack/react-query'
@@ -128,7 +129,7 @@ export function StorekeeperDrawer({
   const stickToBottomRef = useRef(true)
   const queryClient = useQueryClient()
 
-  const { messages, sendMessage, isLoading, stop } = useChat({
+  const { messages, sendMessage, isLoading, stop, clear } = useChat({
     connection: fetchServerSentEvents('/api/storefront-agent'),
     body: { data: { zipCode } },
     onCustomEvent(eventType, data) {
@@ -136,6 +137,16 @@ export function StorekeeperDrawer({
         uiStore.dispatch(data as UIEvent)
       } else if (eventType.startsWith('code_mode:')) {
         activityStore.record(eventType, data as Record<string, unknown>)
+      } else if (eventType === 'skill:registered') {
+        const tid = activityStore.get().currentTurnId
+        if (tid) {
+          const payload = data as { name: string; description?: string }
+          activityStore.setSkillRegistered(tid, {
+            name: payload.name,
+            description: payload.description,
+            registeredAt: Date.now(),
+          })
+        }
       }
       onCustomEvent?.(eventType, data)
     },
@@ -222,6 +233,7 @@ export function StorekeeperDrawer({
       turnIdsRef.current.push(tid)
       activityStore.startTurn(tid)
       lastPromptRef.current = text
+      stickToBottomRef.current = true
       inputRef.current?.focus()
       await sendMessage(text)
     },
@@ -246,12 +258,27 @@ export function StorekeeperDrawer({
     await launch(lastPromptRef.current)
   }
 
+  function handleClear() {
+    if (isLoading) stop()
+    clear()
+    activityStore.clear()
+    uiStore.clear()
+    turnIdsRef.current = []
+    lastPromptRef.current = ''
+    stickToBottomRef.current = true
+    setInput('')
+    inputRef.current?.focus()
+  }
+
   useHotkey('/', () => inputRef.current?.focus(), { enabled: open && !isLoading })
   useHotkey('Escape', () => stop(), { enabled: open && isLoading })
   useHotkey('R', () => void handleRetry(), {
     enabled: open && !isLoading && !!lastPromptRef.current,
   })
   useHotkey('P', () => setPromptOpen(true), { enabled: open && !promptOpen })
+  useHotkey('N', () => handleClear(), {
+    enabled: open && typedMessages.length > 0,
+  })
   useHotkey('1', () => void launch(STARTER_PROMPTS[0]), {
     enabled: open && !isLoading && typedMessages.length === 0,
   })
@@ -309,16 +336,30 @@ export function StorekeeperDrawer({
                 <Sparkles className="h-4 w-4 text-primary" />
                 Storekeeper
               </SheetTitle>
-              <button
-                type="button"
-                onClick={() => setPromptOpen(true)}
-                aria-label="View system prompt"
-                className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                <span>Prompt</span>
-                <Kbd className="ml-0.5">P</Kbd>
-              </button>
+              <div className="flex items-center gap-1">
+                {typedMessages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    aria-label="Clear chat"
+                    className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Clear</span>
+                    <Kbd className="ml-0.5">N</Kbd>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPromptOpen(true)}
+                  aria-label="View system prompt"
+                  className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Prompt</span>
+                  <Kbd className="ml-0.5">P</Kbd>
+                </button>
+              </div>
             </div>
             <SheetDescription>
               Ask for shoes in plain English. Each answer comes from a TypeScript program the model
@@ -392,13 +433,15 @@ export function StorekeeperDrawer({
                     terminal.source === 'typescript' ||
                     terminal.source === 'loop-exhausted')
 
-                const showProgramCard =
+                const hasProgramActivity =
                   !!turn &&
-                  (turn.turnId === liveTurnId ||
-                    turn.calls.length > 0 ||
+                  (turn.calls.length > 0 ||
                     !!turn.code ||
                     turn.codeLength != null ||
                     !!turn.terminalError)
+                const hasSkillReplays = !!turn && turn.replayedSkills.length > 0
+                const showProgramCard =
+                  !!turn && (hasProgramActivity || (turn.turnId === liveTurnId && !hasSkillReplays))
 
                 return (
                   <div key={m.id} className="mr-auto w-full min-w-0 max-w-[92%] space-y-2">
@@ -411,6 +454,9 @@ export function StorekeeperDrawer({
                       />
                     ))}
                     {showProgramCard && turn && <ProgramCard turn={turn} />}
+                    {turn?.replayedSkills.map((skill) => (
+                      <SkillCard key={skill.id} skill={skill} />
+                    ))}
                     {textParts.length > 0 && (
                       <div
                         className={cn(
@@ -448,7 +494,12 @@ export function StorekeeperDrawer({
                 !assistantTurnIds.includes(liveTurnId) && (
                   <div className="mr-auto w-full min-w-0 max-w-[92%] space-y-2">
                     <ThinkingDots />
-                    <ProgramCard turn={activityState.byTurnId[liveTurnId]} />
+                    {activityState.byTurnId[liveTurnId].replayedSkills.length === 0 && (
+                      <ProgramCard turn={activityState.byTurnId[liveTurnId]} />
+                    )}
+                    {activityState.byTurnId[liveTurnId].replayedSkills.map((skill) => (
+                      <SkillCard key={skill.id} skill={skill} />
+                    ))}
                   </div>
                 )}
 

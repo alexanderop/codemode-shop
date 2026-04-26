@@ -1,0 +1,153 @@
+import { Mermaid } from '#/features/docs/components/mermaid'
+
+# Sandbox & events
+
+Code mode means the LLM writes TypeScript and a sandbox runs it. This page is about the sandbox itself — what it is, where it sits in your process, why we picked the Node driver, and the live event stream you can listen to while a program executes.
+
+## Three places code can run
+
+| # | Environment | What runs there | Has access to |
+| --- | --- | --- | --- |
+| 1 | **Browser** | React app, `useChat`, the `ui-store` reducer | The DOM, the SSE stream from your server. Nothing on the server directly. |
+| 2 | **Server (your Node process)** | `/api/storefront-agent`, `chat()`, the `.server()` body of every tool | DB, env vars, network, filesystem. Everything. |
+| 3 | **Sandbox (inside the server)** | The TypeScript program the LLM wrote | **Only the `external_*` and `ui_*` functions you bound in.** No `fetch`, `process`, or `require`. |
+
+The sandbox lives inside your Node process but cannot do anything your Node process can do unless you specifically hand it a function. Tools are how you hand functions across the boundary.
+
+<Mermaid
+  chart={`
+flowchart TB
+  subgraph Server["Your Node process"]
+    direction TB
+    HTTP["/api/storefront-agent"]
+    Chat["chat()"]
+    subgraph Iso["V8 isolate (sandbox)"]
+      Code["LLM-written TS<br/>await external_searchProducts(...)<br/>await ui_addProductCard(...)"]
+    end
+    Tools["catalog-tools<br/>(.server bodies)"]
+    UI["ui-bindings<br/>(emit SSE events)"]
+  end
+  HTTP --> Chat
+  Chat -->|run code| Iso
+  Code -->|external_*| Tools
+  Tools -->|JS value| Code
+  Code -->|ui_*| UI
+  UI -->|storefront:ui SSE| HTTP
+`}
+/>
+
+## The three drivers, and why we picked Node
+
+`@tanstack/ai-code-mode` ships three sandbox runtimes behind a shared `IsolateDriver` interface:
+
+| Driver | Mechanism | Native deps | Best for |
+| --- | --- | --- | --- |
+| `@tanstack/ai-isolate-node` | V8 isolates via `isolated-vm` | C++ addon (compile per platform) | Server-side Node.js — fastest |
+| `@tanstack/ai-isolate-quickjs` | QuickJS interpreter compiled to WASM | None | Browsers, edge, portable deploys |
+| `@tanstack/ai-isolate-cloudflare` | Cloudflare Worker over HTTP | None | Edge deploys on Cloudflare |
+
+This project uses Node:
+
+```typescript
+import { createNodeIsolateDriver } from '@tanstack/ai-isolate-node'
+
+const driver = createNodeIsolateDriver({ memoryLimit: 128, timeout: 30_000 })
+```
+
+Three reasons:
+
+1. **Fastest path on a developer machine.** V8 isolates run LLM-generated TS under the same JIT as the host process — no serialization overhead beyond tool boundaries. QuickJS interprets, which is fine for IO-bound LLM scripts but slower for anything compute-heavy.
+2. **Same heap, separate context.** Each `execute_typescript` call gets a fresh V8 isolate (a brand-new heap with no globals), torn down after the call. No process spawn, no Docker, no network hop.
+3. **One environment.** The dev server, the tool implementations, and the sandbox all share one Node process. Single `pnpm dev` starts everything.
+
+The catch is that `isolated-vm` is a C++ addon. pnpm refuses to run install scripts unless a package is on an allowlist. You'll find this in `package.json`:
+
+```json
+"pnpm": {
+  "onlyBuiltDependencies": ["esbuild", "isolated-vm", "lightningcss"]
+}
+```
+
+If a fresh clone fails with "isolated-vm not built" or similar, that allowlist is the first place to look. (The brain note `brain/conventions/stack.md` has this written down too.)
+
+Swapping to QuickJS is a one-line change: `createQuickJSIsolateDriver()` instead of `createNodeIsolateDriver()`. You'd lose JIT performance and gain native-compile-free installs — useful if you want to deploy somewhere `isolated-vm` can't build.
+
+## What the sandbox guarantees
+
+| Concern | What protects you |
+| --- | --- |
+| Runaway script | `timeout` (default 30s) terminates execution. |
+| Memory exhaustion | `memoryLimit` (default 128MB) caps the V8 heap. |
+| Filesystem / network access | No `fs`, `fetch`, `process`, `require` are exposed. The only callables are the bindings you registered. |
+| State leaking between calls | The isolate is destroyed after every execution. No persistence. |
+| Type confusion at the boundary | Zod validates every binding argument before your `.server()` body runs. |
+
+The sandbox does **not** protect you from the model writing slow code that does ten thousand pointless `external_getProduct` calls — your tool server bodies are real Node code that hit your real catalog. The mitigation there is rate-limiting at the tool level, not at the isolate level.
+
+## The built-in event stream
+
+Code mode emits five custom events through `ToolExecutionContext.emitCustomEvent` while a program runs. They flow over the same SSE connection as the chat tokens.
+
+| Event | When | Key fields |
+| --- | --- | --- |
+| `code_mode:execution_started` | Sandbox begins executing | `timestamp`, `codeLength` |
+| `code_mode:console` | Each `console.log/error/warn/info` from inside the sandbox | `level`, `message`, `timestamp` |
+| `code_mode:external_call` | Before an `external_*` call runs | `function`, `args`, `timestamp` |
+| `code_mode:external_result` | After a successful `external_*` call | `function`, `result`, `duration` |
+| `code_mode:external_error` | When an `external_*` call throws | `function`, `error`, `duration` |
+
+Each event arrives with a `toolCallId` — that's the `execute_typescript` tool call the event belongs to. So if the model called `execute_typescript` twice, you can demux the two streams cleanly.
+
+In this project, `useChat({ onCustomEvent })` in `storekeeper-drawer.tsx` consumes these alongside our own `storefront:ui` and `skill:registered` events. The four-stage pipeline you see in the drawer (_Write TypeScript → Run sandbox → Fetch data → Render UI → Return answer_) is driven by the `code_mode:*` events:
+
+<Mermaid
+  chart={`
+sequenceDiagram
+  participant Iso as Sandbox
+  participant API as /api/storefront-agent
+  participant UC as useChat
+  participant UI as Drawer pipeline UI
+
+  Iso-->>API: code_mode:execution_started
+  API-->>UC: SSE custom event
+  UC->>UI: stage = "Run sandbox"
+
+  Iso-->>API: code_mode:external_call (searchProducts)
+  API-->>UC: SSE
+  UC->>UI: stage = "Fetch data"
+
+  Iso-->>API: code_mode:external_result
+  API-->>UC: SSE
+  Iso-->>API: storefront:ui (ui_addProductCard)
+  API-->>UC: SSE
+  UC->>UI: stage = "Render UI" + mount card
+`}
+/>
+
+The `program-card.tsx` component is the one that actually renders this. It uses Shiki at runtime to highlight the program text and an internal store to track which line is currently executing — that line tracking comes from matching `code_mode:external_call` payloads to source positions.
+
+## What you get back when execution finishes
+
+The `execute_typescript` tool returns a `CodeModeToolResult`:
+
+```typescript
+interface CodeModeToolResult {
+  success: boolean
+  result?: unknown // the program's return value
+  logs?: string[] // captured console output
+  error?: { message: string; name?: string; line?: number }
+}
+```
+
+`result` becomes the tool result the model sees on its next reasoning step. `logs` are appended too. If the program throws, `success` is `false`, the model gets the error message back, and (in practice with typed stubs) it has one chance to retry — usually unnecessary.
+
+## Tips picked up writing this project
+
+- **`console.log` is your debugger.** Captured output round-trips back in the result. Use it liberally during development.
+- **Fail loud at the host edge.** A `.server()` body that throws sends a structured error back into the sandbox; the program can catch it. Don't return `{ ok: false }` — throw and let the type-stub story handle it.
+- **Inspect the system prompt.** `createCodeModeSystemPrompt(config)` returns the prompt you'd send. Reading it once tells you exactly what the model sees about your tools.
+- **Keep tools tight.** Each tool should do one thing. The model composes them in code.
+
+## Next
+
+[Code mode](/docs/code-mode) puts these pieces together with the actual program Claude emits when you ask the storekeeper a question. Or jump straight to [UI vocabulary](/docs/ui-vocabulary) to see how the `storefront:ui` half of the event stream becomes live React components.

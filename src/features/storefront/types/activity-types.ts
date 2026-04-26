@@ -35,6 +35,23 @@ export type TerminalError = {
   source: 'typescript' | 'runtime' | 'network' | 'loop-exhausted'
 }
 
+export type SkillReplayActivity = {
+  id: string
+  name: string
+  input: unknown
+  startedAt: number
+  endedAt?: number
+  result?: unknown
+  error?: string
+  calls: Array<ExternalCall>
+}
+
+export type SkillRegistration = {
+  name: string
+  description?: string
+  registeredAt: number
+}
+
 export type TurnActivity = {
   turnId: string
   startedAt: number
@@ -48,6 +65,8 @@ export type TurnActivity = {
   terminalError?: TerminalError
   priorAttempts: Array<PriorAttempt>
   canvasSnapshot?: CanvasSnapshot
+  replayedSkills: Array<SkillReplayActivity>
+  skillRegistered?: SkillRegistration
 }
 
 export type PriorAttempt = {

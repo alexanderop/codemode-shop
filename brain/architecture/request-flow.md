@@ -15,5 +15,11 @@
 - `POST /api/checkout` → runs `processFakePayment` + `placeOrder`, returns `{ orderId }`. Used by `/checkout` and the in-canvas `CheckoutForm`.
 - `GET /api/orders/$orderId` → read.
 
+## Why `/api/storefront-handler` has no LLM
+
+The CTA-click path (`addToCart` from a product card the agent rendered) is **deterministic code**, not an LLM call. An earlier design used a mini-agent prompted "call addToCart, then cart_update" — the model occasionally **skipped the addToCart call** and still flipped the button to "Added", silently lying to the shopper. The current handler verifies stock via `findStock`, calls `addToCart` directly, and streams three SSE frames (`storefront:ui` for CTA flip, `cart:update` with the fresh `DetailedCart`, `TEXT_MESSAGE_CONTENT` for a toast).
+
+The general rule: **handler routes = code, agent routes = LLM.** Reach for the LLM only when the operation requires judgment. Click handlers, form submits, and any other path that just verifies → mutates → reports do not. See [[principles/prefer-one-source-of-truth]] for why all surfaces (REST + sandbox) share the underlying mutation function regardless.
+
 See [[architecture/checkout-flow]] for how both surfaces reach `/api/checkout`.
 See [[architecture/tanstack-ai/chat-engine]] for what the agent loop does between steps 2 and 3, and [[architecture/code-mode-execution-pipeline]] for what `execute_typescript` does internally.

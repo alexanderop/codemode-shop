@@ -1,4 +1,4 @@
-import { Keyboard, ShoppingBag, Sparkles } from 'lucide-react'
+import { BookOpen, Keyboard, ShoppingBag, Sparkles } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useCartCount } from '#/queries/cart'
 import { assistantUi } from '#/stores/assistant-ui'
@@ -35,6 +35,14 @@ export function SiteHeader() {
               ⌘K
             </kbd>
           </button>
+          <Link
+            to="/docs"
+            aria-label="Docs"
+            title="Docs"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+          >
+            <BookOpen className="h-4 w-4" strokeWidth={2} />
+          </Link>
           <button
             type="button"
             onClick={cheatsheetUi.open}

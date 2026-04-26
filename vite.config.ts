@@ -6,6 +6,11 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
+import mdx from '@mdx-js/rollup'
+import remarkGfm from 'remark-gfm'
+import rehypeShiki from '@shikijs/rehype'
+import rehypeSlug from 'rehype-slug'
+import rehypeAutolinkHeadings from 'rehype-autolink-headings'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
@@ -26,6 +31,26 @@ const config = defineConfig({
     devtools(),
     nitro({ rollupConfig: { external: [/^@sentry\//, 'isolated-vm'] } }),
     tailwindcss(),
+    {
+      enforce: 'pre',
+      ...mdx({
+        remarkPlugins: [remarkGfm],
+        rehypePlugins: [
+          [
+            rehypeShiki,
+            {
+              theme: 'github-dark',
+              defaultLanguage: 'plaintext',
+            },
+          ],
+          rehypeSlug,
+          [
+            rehypeAutolinkHeadings,
+            { behavior: 'wrap', properties: { className: ['heading-anchor'] } },
+          ],
+        ],
+      }),
+    },
     tanstackStart({
       router: {
         entry: 'app/router',
@@ -33,7 +58,7 @@ const config = defineConfig({
         generatedRouteTree: 'app/routeTree.gen.ts',
       },
     }),
-    viteReact(),
+    viteReact({ include: /\.(mdx|js|jsx|ts|tsx)$/ }),
   ],
 })
 

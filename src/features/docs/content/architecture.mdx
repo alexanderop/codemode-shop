@@ -1,0 +1,84 @@
+import { Mermaid } from '#/features/docs/components/mermaid'
+
+# Architecture
+
+Seven files do the work. Each one maps cleanly to one concept. If you read them in order, you can rebuild this project from a blank TanStack Start scaffold.
+
+## The seven files
+
+| # | File | Concept |
+| --- | --- | --- |
+| 1 | `src/lib/catalog.ts` | In-memory catalog (30 shoes, inventory, reviews, price history). No backend. |
+| 2 | `src/lib/tools/catalog-tools.ts` | Headless TanStack AI tools: `searchProducts`, `getProduct`, `getStockAndShipping`, `getReviewSummary`, `getPriceHistory`, `addToCart`. The "external API surface" the sandboxed LLM code can call. |
+| 3 | `src/app/routes/api.storefront-agent.ts` + `src/features/storefront/api/code-mode.ts` + `driver.ts` | The server endpoint. `createCodeMode({ driver: createNodeIsolateDriver(), tools: catalogTools, getSkillBindings: … })` + Anthropic adapter + SSE. |
+| 4 | `src/features/storefront/api/ui-bindings.ts` | The closed UI vocabulary: `ui_addProductCard`, `ui_addStockPill`, `ui_addPriceSparkline`, `ui_addReviewBar`, `ui_addComparisonTable`, `ui_addCTA`, plus `ui_update`/`ui_remove`. Each binding emits a `storefront:ui` custom event. |
+| 5 | `src/features/storefront/api/ui-prompt.ts` | Type-stubs for the UI vocabulary spliced into the system prompt so the LLM codes against a real `declare function …` surface. |
+| 6 | `src/features/storefront/stores/ui-store.ts` + `src/features/storefront/components/storefront-canvas.tsx` | Client reducer that turns streamed UI events into a tree of React components. `useSyncExternalStore` keeps render-time minimal. |
+| 7 | `src/app/routes/api.storefront-handler.ts` + `src/features/storefront/api/run-handler.ts` | Interactive CTAs re-enter code mode to verify stock and emit a `cart:update` event. Same pattern as the main agent — one tool, one generation, N effects. |
+| 8 | `src/features/storefront/api/skill-storage.ts` + `register-skill-tool.ts` + `skill-classifier.ts` + `skill-to-storefront-tool.ts` | Per-session skill memoization. Saves successful programs as named, read-only tools so the next similar query skips `execute_typescript`. See [Skills](/docs/skills). |
+
+## A request, end to end
+
+<Mermaid
+  chart={`
+sequenceDiagram
+  autonumber
+  actor User
+  participant Drawer as Drawer<br/>(useChat)
+  participant API as /api/storefront-agent
+  participant LLM as Claude
+  participant Iso as Node isolate (sandbox)
+  participant Tools as catalog-tools
+
+  User->>Drawer: "compare top 3 trail shoes"
+  Drawer->>API: POST messages
+  API->>LLM: chat( execute_typescript + stubs )
+  LLM-->>API: execute_typescript(code)
+  API->>Iso: run code
+
+  Iso->>Tools: external_searchProducts
+  Tools-->>Iso: ids
+
+  par parallel
+    Iso->>Tools: external_getProduct
+    Iso->>Tools: external_getStockAndShipping
+    Iso->>Tools: external_getReviewSummary
+  end
+  Tools-->>Iso: payloads
+
+  Iso-->>API: ui_addProductCard event
+  API-->>Drawer: SSE storefront:ui
+  Drawer->>User: card streams in
+
+  Iso-->>API: return value
+  API->>LLM: tool result
+  LLM-->>API: assistant message
+  API-->>Drawer: tokens
+`}
+/>
+
+When the user submits a question in the drawer:
+
+1. **Client → server.** `useChat` POSTs the message to `/api/storefront-agent`.
+2. **Build the system prompt.** The handler calls `createCodeMode({ tools, getSkillBindings })`. This returns `{ tool, systemPrompt }` — the `execute_typescript` tool plus a system prompt containing typed stubs for every tool. The handler concatenates the storefront's own system prompt + the code-mode system prompt + the UI vocabulary stubs from `ui-prompt.ts`.
+3. **Stream from Anthropic.** The handler calls `chat({ adapter: anthropicText('claude-sonnet-4-6'), tools: [executeTypescriptTool], systemPrompts, messages })`. Tokens stream back over SSE.
+4. **Tool call lands.** The model emits one `execute_typescript` call. `@tanstack/ai-code-mode` intercepts it and hands the code to `createNodeIsolateDriver()`, which spins up a fresh `isolated-vm` context.
+5. **Sandbox runs.** The program executes. Each `external_*` call serializes back to the host, runs the registered tool, returns the result to the isolate. Each `ui_*` call emits a custom SSE event on the same stream.
+6. **Client renders, live.** The drawer's reducer applies each `storefront:ui` event to the UI store. Components mount as data resolves.
+7. **Program returns.** The return value becomes the tool result. The model wraps it into a final assistant message and the SSE stream closes.
+
+## Why TanStack Start, specifically
+
+Three things made it the path of least resistance:
+
+- **One process for client + server.** The SSE stream and the React UI are the same Vite build. No separate API service, no CORS dance.
+- **File-based routing for both pages and APIs.** `routes/api.storefront-agent.ts` is a server handler, `routes/index.tsx` is a page. Both live next to each other.
+- **TanStack family compounding.** `@tanstack/react-query` + `@tanstack/store` + `@tanstack/ai-react` already share idioms (subscriptions, devtools, types). Less glue.
+
+## Where to go next in the code
+
+If you want to add a new UI primitive, you touch three files: `ui-bindings.ts` (sandbox function), `ui-prompt.ts` (system prompt stub), and `storefront-canvas.tsx` (renderer for the new `kind`). The reducer, the SSE protocol, and the chat plumbing all stay the same.
+
+If you want to add a new data tool, you touch one file: `catalog-tools.ts`. Define a `toolDefinition({ name, inputSchema, outputSchema, server: async fn })`, add it to the `catalogTools` array, and `createCodeMode` regenerates the system prompt automatically. The model gets the new function for free on the next request.
+
+That's it. Read the source from `src/lib/catalog.ts` outward and you have the whole project.

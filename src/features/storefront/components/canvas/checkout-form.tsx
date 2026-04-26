@@ -7,7 +7,7 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { currency } from '#/lib/format'
 import { errorMessage } from '#/lib/utils'
-import { invalidateCart } from '#/queries/cart'
+import { invalidateCart, useCart } from '#/queries/cart'
 import type { CheckoutFormProps } from '#/features/storefront/types/ui-types'
 
 interface FormValues {
@@ -34,7 +34,8 @@ const DEMO_VALUES: FormValues = {
   cvc: '123',
 }
 
-export function CheckoutForm(props: CheckoutFormProps) {
+export function CheckoutForm(_props: CheckoutFormProps) {
+  const cart = useCart()
   const [values, setValues] = useState<FormValues>(DEMO_VALUES)
   const [submitting, setSubmitting] = useState(false)
   const navigate = useNavigate()
@@ -93,8 +94,8 @@ export function CheckoutForm(props: CheckoutFormProps) {
           Checkout
         </div>
         <div className="text-xs text-muted-foreground">
-          {props.lineCount} {props.lineCount === 1 ? 'line' : 'lines'} ·{' '}
-          {currency.format(props.subtotal)}
+          {cart.items.length} {cart.items.length === 1 ? 'line' : 'lines'} ·{' '}
+          {currency.format(cart.subtotal)}
         </div>
       </div>
 
@@ -187,7 +188,7 @@ export function CheckoutForm(props: CheckoutFormProps) {
       <div className="border-t px-4 py-3">
         <Button type="submit" className="w-full gap-2" disabled={submitting}>
           {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {submitting ? 'Processing payment…' : `Place order · ${currency.format(props.subtotal)}`}
+          {submitting ? 'Processing payment…' : `Place order · ${currency.format(cart.subtotal)}`}
         </Button>
       </div>
     </form>

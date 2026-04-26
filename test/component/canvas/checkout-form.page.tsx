@@ -1,5 +1,8 @@
+import { QueryClient } from '@tanstack/react-query'
 import { CheckoutForm } from '#/features/storefront/components/canvas/checkout-form'
 import type { CheckoutFormProps } from '#/features/storefront/types/ui-types'
+import { cartQueryKey } from '#/queries/cart'
+import type { DetailedCart, DetailedCartLine } from '#/lib/cart-mutation'
 import { renderWithQuery } from '../with-query'
 
 export const checkoutFormProps = (overrides?: Partial<CheckoutFormProps>): CheckoutFormProps => ({
@@ -8,9 +11,35 @@ export const checkoutFormProps = (overrides?: Partial<CheckoutFormProps>): Check
   ...overrides,
 })
 
+function placeholderLine(i: number): DetailedCartLine {
+  return {
+    productId: `p${i}`,
+    name: `Item ${i}`,
+    brand: 'Test',
+    imageUrl: '',
+    size: '10',
+    width: 'standard',
+    quantity: 1,
+    unitPrice: 0,
+    lineTotal: 0,
+  }
+}
+
 export async function renderCheckoutForm(overrides?: Partial<CheckoutFormProps>) {
   const props = checkoutFormProps(overrides)
-  const { screen, queryClient } = await renderWithQuery(<CheckoutForm {...props} />)
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0, staleTime: Infinity },
+      mutations: { retry: false },
+    },
+  })
+  const cart: DetailedCart = {
+    items: Array.from({ length: props.lineCount }, (_, i) => placeholderLine(i)),
+    itemCount: props.lineCount,
+    subtotal: props.subtotal,
+  }
+  queryClient.setQueryData(cartQueryKey, cart)
+  const { screen } = await renderWithQuery(<CheckoutForm {...props} />, queryClient)
   return {
     screen,
     queryClient,

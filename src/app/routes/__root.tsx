@@ -117,7 +117,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         />
         <KeyboardCheatsheet open={cheatsheetOpen} onOpenChange={cheatsheetUi.set} />
         <AiActionConfirm />
-        <Toaster richColors position="top-center" />
+        <Toaster position="top-center" />
         <TanStackDevtools
           config={{
             position: 'bottom-right',

@@ -1,0 +1,107 @@
+import { Mermaid } from '#/features/docs/components/mermaid'
+
+# TanStack AI primer
+
+This project is built on [TanStack AI](https://tanstack.com/ai). Code mode is a feature of that SDK, not a standalone library. To follow the rest of the docs, you need a working mental model of how TanStack AI moves data between the browser, your server, and the LLM provider.
+
+## What TanStack AI is
+
+A type-safe, provider-agnostic TypeScript SDK for streaming chat and tool calling. Three properties matter for this project:
+
+- **Provider-agnostic.** A small `adapter` argument selects the LLM. We pass `anthropicText('claude-sonnet-4-6')`, but swapping to OpenAI or Gemini is a one-line change in `api.storefront-agent.ts`.
+- **Isomorphic tools.** A tool is defined once with `toolDefinition()` and gets a `.server()` implementation. The same shape works as a sandbox binding in code mode (with `external_*` prefix) — that's how the storefront's catalog tools end up callable from inside the LLM's TypeScript.
+- **Streaming-first.** The `chat()` server function returns an async iterable of `StreamChunk`. `toServerSentEventsResponse(stream)` wraps that into an SSE Response. The React `useChat()` hook consumes the SSE on the other end. Tokens, tool calls, and **custom events** all ride the same stream.
+
+## Packages used in this project
+
+| Package | What it does here |
+| --- | --- |
+| `@tanstack/ai` | The core SDK: `chat()`, `toolDefinition()`, `toServerSentEventsResponse()` |
+| `@tanstack/ai-react` | `useChat()` hook + `fetchServerSentEvents()` connection adapter |
+| `@tanstack/ai-anthropic` | The Claude adapter — `anthropicText('claude-sonnet-4-6')` |
+| `@tanstack/ai-code-mode` | `createCodeMode({ driver, tools, ... })` — the `execute_typescript` tool + system prompt generator |
+| `@tanstack/ai-isolate-node` | The Node `isolated-vm` driver — V8 isolates inside our server process |
+| `@tanstack/ai-code-mode-skills` | Per-session skill memoization (see [Skills](/docs/skills)) |
+
+## The data flow
+
+<Mermaid
+  chart={`
+flowchart LR
+  subgraph Browser
+    UC["useChat()"]
+  end
+  subgraph "Your server (one Node process)"
+    API["/api/storefront-agent"]
+    CHAT["chat()"]
+    SBX["execute_typescript<br/>(in V8 isolate)"]
+  end
+  subgraph LLM
+    Claude["Anthropic Claude"]
+  end
+  UC -->|POST messages| API
+  API --> CHAT
+  CHAT -->|adapter| Claude
+  Claude -->|tool call| CHAT
+  CHAT --> SBX
+  SBX -->|external_* + ui_*| API
+  API -->|SSE stream<br/>tokens + custom events| UC
+`}
+/>
+
+The shape is: client posts a chat to your server, your server is the only thing that talks to the LLM, and your server is also the only thing that runs the sandbox. The browser never executes LLM-written code — it only renders results.
+
+## The two functions you actually call
+
+Almost every TanStack AI app uses these two:
+
+```typescript
+import { chat, toServerSentEventsResponse } from '@tanstack/ai'
+import { anthropicText } from '@tanstack/ai-anthropic'
+
+const stream = chat({
+  adapter: anthropicText('claude-sonnet-4-6'),
+  systemPrompts: ['You are a helpful assistant.'],
+  tools: [searchProducts, getProduct /* … */],
+  messages,
+})
+
+return toServerSentEventsResponse(stream)
+```
+
+```typescript
+import { useChat, fetchServerSentEvents } from '@tanstack/ai-react'
+
+const { messages, sendMessage } = useChat({
+  connection: fetchServerSentEvents('/api/storefront-agent'),
+  onCustomEvent: (eventType, data, ctx) => {
+    /* render code_mode:* and storefront:ui events here */
+  },
+})
+```
+
+`chat()` runs the agent loop: it calls the model, intercepts tool calls, runs the corresponding `.server()` implementation, feeds results back to the model, and keeps going until the model produces a final answer. In code mode there's typically only one round-trip — the model emits a single `execute_typescript` call, the sandbox runs the program, the result feeds back in, the model writes a brief summary, done.
+
+## SSE — one stream, three kinds of payload
+
+TanStack AI's [SSE protocol](https://github.com/tanstack/ai/blob/main/docs/protocol/sse-protocol.md) sends `data: {JSON}\n\n` events. The JSON has a `type` discriminator:
+
+- `type: 'content'` — token deltas streaming the assistant message.
+- `type: 'tool_call'` — the model calling a tool (e.g. `execute_typescript`).
+- **Custom events** — arbitrary `(eventType, data)` pairs emitted from inside a tool's `.server()` body via `context.emitCustomEvent`. This is how `code_mode:execution_started`, `storefront:ui`, and `skill:registered` reach the browser.
+
+The `useChat` hook parses these and exposes them via `messages` (for content + tool calls) and `onCustomEvent` (for everything else). [Sandbox & events](/docs/sandbox) goes deep on the custom-event side.
+
+## Why TanStack AI, not Vercel AI SDK
+
+Three project-specific reasons:
+
+1. **Code mode lives upstream.** `@tanstack/ai-code-mode` is a first-party package; Vercel AI SDK has no equivalent. Everything in this repo would be a custom build on top of that SDK.
+2. **Isomorphic tools fit the storefront.** `addToCart` is a `toolDefinition` with both a server implementation (mutates the cart Map) and a client handler (re-enters code mode for confirmation). Vercel's tool system is provider-scoped; ours is shape-scoped, which suits read/write splits.
+3. **Per-model type safety.** When you write `anthropicText('claude-haiku-4-5')`, TypeScript narrows the exact options that model supports. The `STOREFRONT_MODEL` env override stays type-safe across swaps.
+
+The brain has the longer write-up at `brain/conventions/tanstack-ai-vs-vercel-ai.md`. Upstream comparison: [TanStack AI vs Vercel AI SDK](https://github.com/tanstack/ai/blob/main/docs/comparison/vercel-ai-sdk.md).
+
+## Next
+
+You now know the SDK that holds everything together. Continue with [Tools & type stubs](/docs/tools) — that's the magic that lets the LLM call our catalog with type-checked arguments.

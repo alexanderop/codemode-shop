@@ -5,7 +5,7 @@ import { Button } from '#/components/ui/button'
 import { currency } from '#/lib/format'
 import { errorMessage } from '#/lib/utils'
 import { uiStore } from '#/features/storefront/stores/ui-store'
-import { useCartMutation } from '#/queries/cart'
+import { useCart, useCartMutation } from '#/queries/cart'
 import { cartLineKey } from '#/lib/cart-key'
 import type { CartSummaryProps } from '#/features/storefront/types/ui-types'
 
@@ -18,7 +18,8 @@ function mountCheckoutForm(subtotal: number, lineCount: number) {
   })
 }
 
-export function CartSummary(props: CartSummaryProps) {
+export function CartSummary(_props: CartSummaryProps) {
+  const cart = useCart()
   const [pendingKey, setPendingKey] = useState<string | null>(null)
   const cartMutation = useCartMutation()
 
@@ -33,7 +34,7 @@ export function CartSummary(props: CartSummaryProps) {
     }
   }
 
-  if (props.items.length === 0) {
+  if (cart.items.length === 0) {
     return (
       <div className="rounded-xl border bg-card p-4 text-sm shadow-sm">
         <div className="flex items-center gap-2 font-semibold">
@@ -55,12 +56,12 @@ export function CartSummary(props: CartSummaryProps) {
           Your cart
         </div>
         <div className="text-xs text-muted-foreground">
-          {props.itemCount} {props.itemCount === 1 ? 'item' : 'items'}
+          {cart.itemCount} {cart.itemCount === 1 ? 'item' : 'items'}
         </div>
       </div>
 
       <div className="divide-y">
-        {props.items.map((item) => {
+        {cart.items.map((item) => {
           const lineKey = cartLineKey(item.productId, item.size, item.width)
           const isPending = pendingKey === lineKey
           const setQty = (quantity: number) =>
@@ -143,13 +144,13 @@ export function CartSummary(props: CartSummaryProps) {
 
       <div className="flex items-center justify-between border-t bg-muted/40 px-4 py-3 font-semibold">
         <span>Subtotal</span>
-        <span>{currency.format(props.subtotal)}</span>
+        <span>{currency.format(cart.subtotal)}</span>
       </div>
       <div className="border-t px-4 py-3">
         <Button
           type="button"
           className="w-full"
-          onClick={() => mountCheckoutForm(props.subtotal, props.items.length)}
+          onClick={() => mountCheckoutForm(cart.subtotal, cart.items.length)}
         >
           Proceed to checkout
         </Button>

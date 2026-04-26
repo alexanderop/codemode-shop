@@ -1,0 +1,90 @@
+import { Mermaid } from '#/features/docs/components/mermaid'
+
+# UI vocabulary
+
+The data half of code mode is well-trodden ground (Cloudflare, Anthropic, TanStack all wrote about it). The UI half is the ingredient this repo adds. _While_ the program is running inside the sandbox, it can call a closed set of `ui_*` functions that materialize React components in the drawer in real time.
+
+<Mermaid
+  chart={`
+flowchart LR
+  A["Sandbox program<br/>ui_addProductCard(...)"]
+  B["SSE event<br/>storefront:ui"]
+  C["ui-store<br/>(state, event) ⇒ state"]
+  D["storefront-canvas<br/>walks tree"]
+  E["&lt;ProductCard /&gt;"]
+  A -->|emit| B
+  B -->|onCustomEvent| C
+  C -->|useSyncExternalStore| D
+  D -->|render| E
+`}
+/>
+
+## The closed vocabulary
+
+Eight primitives, plus `ui_update` and `ui_remove`. They live in `src/features/storefront/api/ui-bindings.ts`:
+
+| Primitive | What it renders |
+| --- | --- |
+| `ui_showLoading` | A skeleton row with a label |
+| `ui_addProductCard` | A shoe card (image, brand, name, price, color chip) |
+| `ui_addStockPill` | "In stock — arrives Tue" pill, attached to a parent card |
+| `ui_addPriceSparkline` | Mini sparkline of price history |
+| `ui_addReviewBar` | Star rating + most-mentioned praise / complaints |
+| `ui_addComparisonTable` | Side-by-side spec table |
+| `ui_addCTA` | Primary or secondary button bound to a handler ID |
+| `ui_update` / `ui_remove` | Patch or delete a previously-emitted node by `id` |
+
+Each primitive takes a typed payload that includes an `id` (and optionally a `parentId` for nesting). The id space is the model's responsibility — it picks the strings.
+
+## How a call gets to the screen
+
+Three layers, each doing the smallest possible job:
+
+1. **Sandbox binding.** The host registers a JavaScript function in the isolate. When the program calls `ui_addProductCard({ … })`, that function serializes the payload and emits a custom SSE event on the active stream — `event: storefront:ui` with the typed payload as JSON.
+2. **TanStack AI's transport.** `@tanstack/ai` already has a streaming protocol (AG-UI). Custom events ride alongside model tokens and tool-call markers. The React hook `useChat` exposes them via an `onCustomEvent` callback.
+3. **Client reducer.** `src/features/storefront/stores/ui-store.ts` is a `@tanstack/store` instance with a tiny `(state, event) => state` reducer. Add a node, update a node, remove a node. `useSyncExternalStore` exposes the tree to React. `storefront-canvas.tsx` walks the tree and renders the matching component for each node `kind`.
+
+The reducer is the entire piece of magic. The model isn't generating React. It's generating events. The client decides what each event means visually.
+
+## The system prompt trick
+
+The model has to know what `ui_addProductCard` accepts. Type stubs are spliced into the system prompt as plain TypeScript:
+
+```typescript
+declare function ui_addProductCard(input: {
+  id: string
+  productId: string
+  name: string
+  brand: string
+  price: number
+  imageUrl: string
+  rating: number
+  color: string
+  highlight?: boolean
+}): Promise<void>
+```
+
+This file (`src/features/storefront/api/ui-prompt.ts`) is the only place the LLM sees the contract. No JSON schemas in messages, no manual prose description. Add a primitive → add its `declare function …` block → it's available.
+
+`@tanstack/ai-code-mode` does the same thing for `external_*` (data) tools, deriving stubs from each tool's Zod input/output schemas. When you build the system prompt with `createCodeMode({ tools: [...] }).systemPrompt`, you get a doc dump of every tool the sandbox can reach.
+
+## Why custom SSE events instead of "just emit React"
+
+Three reasons:
+
+- **Closed vocabulary is a safety wall.** The model can't ship a `<script>` tag, draft an `onClick={fetch(...)}`, or smuggle layout into the drawer. It can only call nine functions. Any new visual surface area is a code change in this repo, not a model output.
+- **Decoupling.** The same events could drive a different renderer — print, voice, native — without touching the prompt.
+- **Streaming.** The events arrive over the same SSE connection as tokens, so a card appears the moment its data is ready, not after the program returns.
+
+## CTAs go back through code mode too
+
+When a user clicks the _Add to cart_ CTA, the handler doesn't call a REST endpoint directly. It re-enters code mode through `src/features/storefront/api/run-handler.ts` with `handlerId: 'addToCart'` and the payload. The model writes a tiny program (verify stock → call `external_addToCart` → emit a `cart:update` event). The header badge updates. Same one-tool-many-effects pattern, just smaller.
+
+## What's deliberately missing
+
+- **No `ui_appendDom` or `ui_html` escape hatch.** That would re-open the door to arbitrary output.
+- **No cart/order persistence.** Cart state is a module-level `Map`. Restart the dev server, the cart is empty.
+
+## Next
+
+[Skills](/docs/skills) explains how a successful program gets saved as a named, reusable tool — so the same shopper can ask the same question next session and skip the sandbox entirely. Then [Architecture](/docs/architecture) walks the file map.

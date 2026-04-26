@@ -1,0 +1,110 @@
+import { Mermaid } from '#/features/docs/components/mermaid'
+
+# Tools & type stubs
+
+A "tool" in TanStack AI is a typed function the model can call. In this project, "tool" actually splits into two flavors with different lives:
+
+- **Data tools** — `searchProducts`, `getProduct`, `getStockAndShipping`, etc. They have a `.server()` implementation that returns a value. The model uses them to fetch facts.
+- **UI bindings** — `ui_addProductCard`, `ui_addCTA`, etc. They don't return a value to the model in the same way — they emit a `storefront:ui` custom event so the drawer can render. (See [UI vocabulary](/docs/ui-vocabulary).)
+
+Both flavors use the same TanStack AI `toolDefinition` machinery. The trick is how those definitions get translated into something the LLM can call from inside the sandbox.
+
+## `toolDefinition`, the two-step pattern
+
+Every tool starts with a definition — a name, a description, an input schema, and an output schema. Then a `.server()` call adds the implementation:
+
+```typescript
+import { toolDefinition } from '@tanstack/ai'
+import { z } from 'zod'
+
+export const searchProducts = toolDefinition({
+  name: 'searchProducts',
+  description: 'Search the catalog. Filter by category, price, color, size.',
+  inputSchema: z.object({
+    category: z.enum(['Running', 'Trail', 'Lifestyle', 'Basketball']).optional(),
+    maxPrice: z.number().optional(),
+    colors: z.array(z.string()).optional(),
+    size: z.string().optional(),
+  }),
+  outputSchema: z.object({
+    productIds: z.array(z.string()),
+  }),
+}).server(async ({ category, maxPrice, colors, size }) => {
+  return { productIds: filterCatalog({ category, maxPrice, colors, size }) }
+})
+```
+
+The pattern is **define once, implement per-environment**. Here we only need a server implementation — the sandbox calls it as a binding, not the browser. Tools _can_ also have `.client()` implementations for things that need to run in the browser (e.g. local-storage updates), but this project doesn't use that.
+
+Zod is the recommended schema choice. The Zod input/output schemas drive everything downstream: TypeScript inference, runtime validation, and — most interestingly — the **type stubs** the model sees in its system prompt.
+
+## How the model knows what to call
+
+When you do `createCodeMode({ tools: catalogTools, … })`, three things happen:
+
+<Mermaid
+  chart={`
+flowchart LR
+  A["catalogTools<br/>Array&lt;ServerTool&gt;"]
+  B["toolsToBindings(<br/>tools, 'external_'<br/>)"]
+  C["Bindings<br/>{ external_searchProducts: ... }"]
+  D["generateTypeStubs(bindings)"]
+  E["TypeScript declare blocks<br/>in system prompt"]
+  F["Sandbox<br/>(V8 isolate)"]
+  A --> B --> C
+  C --> D --> E
+  C -->|"injected at exec time"| F
+`}
+/>
+
+1. **Bindings.** `toolsToBindings(tools, 'external_')` produces a record like `{ external_searchProducts: <fn>, external_getProduct: <fn>, … }`. The prefix is a convention so the model can tell sandbox-callable tools apart from local helpers.
+2. **Type stubs in the system prompt.** `generateTypeStubs` walks each binding and emits a TypeScript `declare function` block from its Zod input/output schemas:
+
+   ```typescript
+   declare function external_searchProducts(input: {
+     category?: 'Running' | 'Trail' | 'Lifestyle' | 'Basketball'
+     maxPrice?: number
+     colors?: string[]
+     size?: string
+   }): Promise<{ productIds: string[] }>
+   ```
+
+   These get spliced into the system prompt before the model sees the user message. **There is no JSON schema in the messages, no manual prose contract.** The model writes against a real-looking TypeScript surface.
+3. **Bridged at execution time.** When the sandbox runs `external_searchProducts({ category: 'Running' })`, the call crosses the isolate boundary, executes your `.server()` implementation in the host, and returns the JSON result.
+
+You can inspect the generated stubs by calling `createCodeModeSystemPrompt(config)` and logging the output. It's plain text — copy it, read it, paste it into a chat with the model to debug.
+
+## UI bindings are tools too — with a twist
+
+In `src/features/storefront/api/ui-bindings.ts` we register `ui_*` functions in the same way `external_*` come in. The twist is what they do at runtime: instead of fetching, they call `context.emitCustomEvent('storefront:ui', payload)`. That goes out as an SSE event on the same stream the chat is using:
+
+```typescript
+ui_addProductCard.server(async (input, context) => {
+  context?.emitCustomEvent?.('storefront:ui', { kind: 'addProductCard', ...input })
+})
+```
+
+`ToolExecutionContext.emitCustomEvent(eventType, data)` is the official TanStack AI escape hatch for streaming progress updates from a running tool back to the client. Code mode itself uses it for the built-in `code_mode:*` events. We use it for the project-specific `storefront:ui` and `skill:registered` events. The browser receives all three families through the single `useChat({ onCustomEvent })` callback.
+
+## Server-side vs sandbox-side
+
+A tool can be invoked in two contexts in this project, and they behave slightly differently:
+
+| Context | Who calls it | Argument shape | Where the result goes |
+| --- | --- | --- | --- |
+| **Direct chat tool** | The model, as a regular tool call | The Zod-typed input | Back to the model as a tool result message |
+| **Sandbox binding** (code mode) | The TypeScript program in the isolate | Same Zod-typed input | Returned to the running program as a JS value (or emitted as a custom event for `ui_*`) |
+
+In this project, every tool is registered as a code-mode binding via `catalogTools` and `createStorefrontUIBindings()`. The model never calls them directly — it always calls them through `execute_typescript`. That's the whole point of code mode.
+
+## Why this design holds up
+
+Three things would be painful without it:
+
+- **Schema drift.** If the system prompt described tool shapes in prose, they'd drift from the implementation. Here, the Zod schema is the source of truth — change a field and the stub regenerates.
+- **Validation at the boundary.** Zod runs at the host edge of every binding call, so a malformed argument from the model gets rejected with a structured error before it touches your real code.
+- **Composition.** A new data tool is a new `toolDefinition`, added to the `catalogTools` array. The system prompt regenerates with the new stub. The model has the new capability on the next request.
+
+## Next
+
+[Sandbox & events](/docs/sandbox) covers what happens once the model has decided what to call: how `execute_typescript` runs the program, what the V8 isolate does and doesn't expose, and the live event stream you can listen to.

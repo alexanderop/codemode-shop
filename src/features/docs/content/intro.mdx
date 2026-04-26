@@ -1,0 +1,47 @@
+# codemode.shop
+
+A tiny shoe store with one big idea: the shopping assistant writes **TypeScript on the fly** inside a sandbox, and the UI _builds itself_ as the code runs.
+
+This site is the technical companion to the [demo storefront](/). If you came from the README, the four pages here unpack what's actually happening when you click _Ask Storekeeper_.
+
+## The pitch in one paragraph
+
+A traditional tool-calling agent makes ~16 round-trips through the LLM to answer a question like _"compare the top two trail shoes"_: search, then `getProduct × 2`, then `getStock × 2`, then `getReviews × 2`, then a comparison, then a CTA, then a wrap-up. Every round-trip is latency and tokens. **Code mode collapses that to one generation.** The model writes a TypeScript program, the program runs in a sandboxed isolate, and only the final answer flows back through the model. Parallelism, filtering, ranking — all in code.
+
+This repo adds one more trick: the sandboxed code can call a closed vocabulary of **UI primitives** (`ui_addProductCard`, `ui_addComparisonTable`, `ui_addCTA`, …). Each call emits a typed event over SSE. A client reducer materializes those events into live React components while the program is still running.
+
+## What you'll find here
+
+The docs are split into three groups. **Background** covers the framework underneath — read these if you've never touched TanStack AI. **Concepts** covers the project-specific pieces. **Reference** is the file-by-file map.
+
+### Background
+
+| Page | What it covers |
+| --- | --- |
+| [TanStack AI primer](/docs/tanstack-ai) | Which packages we use, `chat()` + `useChat()`, the SSE protocol, why TanStack AI over Vercel AI SDK. |
+| [Tools & type stubs](/docs/tools) | `toolDefinition().server()`, how Zod schemas become TypeScript stubs in the system prompt, `emitCustomEvent`. |
+| [Sandbox & events](/docs/sandbox) | The three drivers, why we use Node `isolated-vm`, the live `code_mode:*` event stream that drives the drawer. |
+
+### Concepts
+
+| Page | What it covers |
+| --- | --- |
+| [Code mode](/docs/code-mode) | Tool calling vs. code mode. The N+1 problem. The actual TypeScript Claude emits. |
+| [UI vocabulary](/docs/ui-vocabulary) | The closed set of `ui_*` primitives, the SSE event protocol, the client reducer. |
+| [Skills](/docs/skills) | How a successful program is saved as a named, reusable tool — per-shopper memoization with a read-only safety gate. |
+
+### Reference
+
+| Page | What it covers |
+| --- | --- |
+| [Architecture](/docs/architecture) | The eight files that make up the project, what each one does. |
+
+## Prior art and credit
+
+Three pieces of work pushed this approach into the mainstream in late 2025 / early 2026:
+
+- **Cloudflare**, _[Code Mode: give agents an entire API in 1,000 tokens](https://blog.cloudflare.com/code-mode/)_ — coined the term and shipped the server-side variant powered by Dynamic Workers.
+- **Anthropic**, _[Code execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp)_ — the same idea applied to MCP servers, with the file-tree progressive-disclosure twist.
+- **TanStack**, _[Code Mode: Let Your AI Write Programs, Not Just Call Tools](https://tanstack.com/blog/code-mode)_ — the framework-agnostic `@tanstack/ai-code-mode` package this repo is built on.
+
+This project is a teaching demo for the TanStack version, with one extra ingredient: the sandbox doesn't just call data tools, it also drives the UI.
