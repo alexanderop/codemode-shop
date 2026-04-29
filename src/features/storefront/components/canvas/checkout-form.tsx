@@ -8,6 +8,7 @@ import { Input } from '#/components/ui/input'
 import { currency } from '#/lib/format'
 import { errorMessage } from '#/lib/utils'
 import { invalidateCart, useCart } from '#/queries/cart'
+import { checkout } from '#/queries/checkout'
 import type { CheckoutFormProps } from '#/features/storefront/types/ui-types'
 
 interface FormValues {
@@ -50,10 +51,8 @@ export function CheckoutForm(_props: CheckoutFormProps) {
     if (submitting) return
     setSubmitting(true)
     try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const { orderId } = await checkout({
+        data: {
           shippingAddress: {
             fullName: values.fullName,
             line1: values.line1,
@@ -67,15 +66,10 @@ export function CheckoutForm(_props: CheckoutFormProps) {
             expiry: values.expiry,
             cvc: values.cvc,
           },
-        }),
+        },
       })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error ?? 'Checkout failed')
-        return
-      }
       void invalidateCart(queryClient)
-      void navigate({ to: '/orders/$orderId', params: { orderId: data.orderId } })
+      void navigate({ to: '/orders/$orderId', params: { orderId } })
     } catch (err) {
       toast.error(errorMessage(err, 'Checkout failed'))
     } finally {

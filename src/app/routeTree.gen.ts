@@ -24,10 +24,6 @@ import { Route as DocsCodeModeRouteImport } from './routes/docs.code-mode'
 import { Route as DocsArchitectureRouteImport } from './routes/docs.architecture'
 import { Route as ApiStorefrontHandlerRouteImport } from './routes/api.storefront-handler'
 import { Route as ApiStorefrontAgentRouteImport } from './routes/api.storefront-agent'
-import { Route as ApiCheckoutRouteImport } from './routes/api.checkout'
-import { Route as ApiCartRouteImport } from './routes/api.cart'
-import { Route as ApiSkillsNameRouteImport } from './routes/api.skills.$name'
-import { Route as ApiOrdersOrderIdRouteImport } from './routes/api.orders.$orderId'
 
 const DocsRoute = DocsRouteImport.update({
   id: '/docs',
@@ -104,34 +100,12 @@ const ApiStorefrontAgentRoute = ApiStorefrontAgentRouteImport.update({
   path: '/api/storefront-agent',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiCheckoutRoute = ApiCheckoutRouteImport.update({
-  id: '/api/checkout',
-  path: '/api/checkout',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiCartRoute = ApiCartRouteImport.update({
-  id: '/api/cart',
-  path: '/api/cart',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiSkillsNameRoute = ApiSkillsNameRouteImport.update({
-  id: '/api/skills/$name',
-  path: '/api/skills/$name',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiOrdersOrderIdRoute = ApiOrdersOrderIdRouteImport.update({
-  id: '/api/orders/$orderId',
-  path: '/api/orders/$orderId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/docs': typeof DocsRouteWithChildren
-  '/api/cart': typeof ApiCartRoute
-  '/api/checkout': typeof ApiCheckoutRoute
   '/api/storefront-agent': typeof ApiStorefrontAgentRoute
   '/api/storefront-handler': typeof ApiStorefrontHandlerRoute
   '/docs/architecture': typeof DocsArchitectureRoute
@@ -143,15 +117,11 @@ export interface FileRoutesByFullPath {
   '/docs/ui-vocabulary': typeof DocsUiVocabularyRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/docs/': typeof DocsIndexRoute
-  '/api/orders/$orderId': typeof ApiOrdersOrderIdRoute
-  '/api/skills/$name': typeof ApiSkillsNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
-  '/api/cart': typeof ApiCartRoute
-  '/api/checkout': typeof ApiCheckoutRoute
   '/api/storefront-agent': typeof ApiStorefrontAgentRoute
   '/api/storefront-handler': typeof ApiStorefrontHandlerRoute
   '/docs/architecture': typeof DocsArchitectureRoute
@@ -163,8 +133,6 @@ export interface FileRoutesByTo {
   '/docs/ui-vocabulary': typeof DocsUiVocabularyRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/docs': typeof DocsIndexRoute
-  '/api/orders/$orderId': typeof ApiOrdersOrderIdRoute
-  '/api/skills/$name': typeof ApiSkillsNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -172,8 +140,6 @@ export interface FileRoutesById {
   '/cart': typeof CartRoute
   '/checkout': typeof CheckoutRoute
   '/docs': typeof DocsRouteWithChildren
-  '/api/cart': typeof ApiCartRoute
-  '/api/checkout': typeof ApiCheckoutRoute
   '/api/storefront-agent': typeof ApiStorefrontAgentRoute
   '/api/storefront-handler': typeof ApiStorefrontHandlerRoute
   '/docs/architecture': typeof DocsArchitectureRoute
@@ -185,8 +151,6 @@ export interface FileRoutesById {
   '/docs/ui-vocabulary': typeof DocsUiVocabularyRoute
   '/orders/$orderId': typeof OrdersOrderIdRoute
   '/docs/': typeof DocsIndexRoute
-  '/api/orders/$orderId': typeof ApiOrdersOrderIdRoute
-  '/api/skills/$name': typeof ApiSkillsNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -195,8 +159,6 @@ export interface FileRouteTypes {
     | '/cart'
     | '/checkout'
     | '/docs'
-    | '/api/cart'
-    | '/api/checkout'
     | '/api/storefront-agent'
     | '/api/storefront-handler'
     | '/docs/architecture'
@@ -208,15 +170,11 @@ export interface FileRouteTypes {
     | '/docs/ui-vocabulary'
     | '/orders/$orderId'
     | '/docs/'
-    | '/api/orders/$orderId'
-    | '/api/skills/$name'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/cart'
     | '/checkout'
-    | '/api/cart'
-    | '/api/checkout'
     | '/api/storefront-agent'
     | '/api/storefront-handler'
     | '/docs/architecture'
@@ -228,16 +186,12 @@ export interface FileRouteTypes {
     | '/docs/ui-vocabulary'
     | '/orders/$orderId'
     | '/docs'
-    | '/api/orders/$orderId'
-    | '/api/skills/$name'
   id:
     | '__root__'
     | '/'
     | '/cart'
     | '/checkout'
     | '/docs'
-    | '/api/cart'
-    | '/api/checkout'
     | '/api/storefront-agent'
     | '/api/storefront-handler'
     | '/docs/architecture'
@@ -249,8 +203,6 @@ export interface FileRouteTypes {
     | '/docs/ui-vocabulary'
     | '/orders/$orderId'
     | '/docs/'
-    | '/api/orders/$orderId'
-    | '/api/skills/$name'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -258,13 +210,9 @@ export interface RootRouteChildren {
   CartRoute: typeof CartRoute
   CheckoutRoute: typeof CheckoutRoute
   DocsRoute: typeof DocsRouteWithChildren
-  ApiCartRoute: typeof ApiCartRoute
-  ApiCheckoutRoute: typeof ApiCheckoutRoute
   ApiStorefrontAgentRoute: typeof ApiStorefrontAgentRoute
   ApiStorefrontHandlerRoute: typeof ApiStorefrontHandlerRoute
   OrdersOrderIdRoute: typeof OrdersOrderIdRoute
-  ApiOrdersOrderIdRoute: typeof ApiOrdersOrderIdRoute
-  ApiSkillsNameRoute: typeof ApiSkillsNameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -374,34 +322,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStorefrontAgentRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/checkout': {
-      id: '/api/checkout'
-      path: '/api/checkout'
-      fullPath: '/api/checkout'
-      preLoaderRoute: typeof ApiCheckoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/cart': {
-      id: '/api/cart'
-      path: '/api/cart'
-      fullPath: '/api/cart'
-      preLoaderRoute: typeof ApiCartRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/skills/$name': {
-      id: '/api/skills/$name'
-      path: '/api/skills/$name'
-      fullPath: '/api/skills/$name'
-      preLoaderRoute: typeof ApiSkillsNameRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/orders/$orderId': {
-      id: '/api/orders/$orderId'
-      path: '/api/orders/$orderId'
-      fullPath: '/api/orders/$orderId'
-      preLoaderRoute: typeof ApiOrdersOrderIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -434,13 +354,9 @@ const rootRouteChildren: RootRouteChildren = {
   CartRoute: CartRoute,
   CheckoutRoute: CheckoutRoute,
   DocsRoute: DocsRouteWithChildren,
-  ApiCartRoute: ApiCartRoute,
-  ApiCheckoutRoute: ApiCheckoutRoute,
   ApiStorefrontAgentRoute: ApiStorefrontAgentRoute,
   ApiStorefrontHandlerRoute: ApiStorefrontHandlerRoute,
   OrdersOrderIdRoute: OrdersOrderIdRoute,
-  ApiOrdersOrderIdRoute: ApiOrdersOrderIdRoute,
-  ApiSkillsNameRoute: ApiSkillsNameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -51,7 +51,6 @@ function streamingResponse(chunks: ReadonlyArray<string>): Response {
 
 interface Routes {
   handler?: () => Response | Promise<Response>
-  cartGet?: () => Response | Promise<Response>
 }
 
 function installFetch(routes: Routes) {
@@ -61,10 +60,6 @@ function installFetch(routes: Routes) {
     if (url === '/api/storefront-handler' && method === 'POST') {
       if (!routes.handler) throw new Error('No handler route configured')
       return routes.handler()
-    }
-    if (url === '/api/cart' && method === 'GET') {
-      if (!routes.cartGet) throw new Error('No cartGet route configured')
-      return routes.cartGet()
     }
     throw new Error(`Unexpected fetch in test: ${method} ${url}`)
   })

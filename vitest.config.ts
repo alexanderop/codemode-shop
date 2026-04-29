@@ -4,14 +4,25 @@ import { playwright } from '@vitest/browser-playwright'
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url))
 
+// Stub `@tanstack/react-start/server` because its static `import("#tanstack-start-...")`
+// only resolves under the TanStack Start Vite plugin, which tests don't run.
+const aliases = {
+  '#': `${rootDir}src`,
+  '@tanstack/react-start/server': `${rootDir}test/stubs/react-start-server.ts`,
+}
+
+// Browser project additionally needs `node:async_hooks` shimmed (pulled in by session-context).
+const componentAliases = {
+  ...aliases,
+  'node:async_hooks': `${rootDir}test/stubs/async-hooks.ts`,
+}
+
 export default defineConfig({
-  resolve: {
-    alias: { '#': `${rootDir}src` },
-  },
+  resolve: { alias: aliases },
   test: {
     projects: [
       {
-        resolve: { alias: { '#': `${rootDir}src` } },
+        resolve: { alias: aliases },
         test: {
           name: 'unit',
           environment: 'node',
@@ -20,7 +31,7 @@ export default defineConfig({
         },
       },
       {
-        resolve: { alias: { '#': `${rootDir}src` } },
+        resolve: { alias: componentAliases },
         test: {
           name: 'component',
           include: ['test/component/**/*.test.{ts,tsx}'],

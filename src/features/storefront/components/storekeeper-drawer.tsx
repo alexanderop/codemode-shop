@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, Send, Sparkles, Square, Trash2 } from 'lucide-react'
+import { Braces, FileText, Send, Sparkles, Square, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useChat, fetchServerSentEvents } from '@tanstack/ai-react'
 import { parsePartialJSON } from '@tanstack/ai'
@@ -22,6 +22,8 @@ import { ProgramCard, PriorAttemptChip } from '#/features/storefront/components/
 import { SkillCard } from '#/features/storefront/components/skill-card'
 import { InlineErrorCard } from '#/features/storefront/components/inline-error-card'
 import { SystemPromptSheet } from '#/features/storefront/components/system-prompt-sheet'
+import { DebugDumpSheet } from '#/features/storefront/components/debug-dump-sheet'
+import type { JsonValue } from '#/features/storefront/components/json-tree'
 import { useQueryClient } from '@tanstack/react-query'
 import { canvasCallbacks } from '#/features/storefront/components/canvas/canvas-callbacks'
 import { uiStore } from '#/features/storefront/stores/ui-store'
@@ -185,6 +187,7 @@ export function StorekeeperDrawer({
   })
   const [input, setInput] = useState('')
   const [promptOpen, setPromptOpen] = useState(false)
+  const [dumpOpen, setDumpOpen] = useState(false)
   const activityState = useActivityState()
 
   const typedMessages = messages as unknown as Array<AnyMessage>
@@ -256,6 +259,20 @@ export function StorekeeperDrawer({
   async function handleRetry() {
     if (!lastPromptRef.current) return
     await launch(lastPromptRef.current)
+  }
+
+  const [dumpData, setDumpData] = useState<JsonValue | null>(null)
+
+  function openDump() {
+    setDumpData({
+      timestamp: new Date().toISOString(),
+      lastPrompt: lastPromptRef.current,
+      isLoading,
+      messages: typedMessages,
+      activity: activityState,
+      ui: uiStore.get(),
+    } as unknown as JsonValue)
+    setDumpOpen(true)
   }
 
   function handleClear() {
@@ -337,6 +354,17 @@ export function StorekeeperDrawer({
                 Storekeeper
               </SheetTitle>
               <div className="flex items-center gap-1">
+                {typedMessages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={openDump}
+                    aria-label="View chat structure"
+                    className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  >
+                    <Braces className="h-3.5 w-3.5" />
+                    <span>View</span>
+                  </button>
+                )}
                 {typedMessages.length > 0 && (
                   <button
                     type="button"
@@ -550,6 +578,9 @@ export function StorekeeperDrawer({
         </SheetContent>
       </Sheet>
       <SystemPromptSheet open={promptOpen} onOpenChange={setPromptOpen} zipCode={zipCode} />
+      {dumpData !== null && (
+        <DebugDumpSheet open={dumpOpen} onOpenChange={setDumpOpen} data={dumpData} />
+      )}
     </>
   )
 }

@@ -5,13 +5,52 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query'
+import { createServerFn } from '@tanstack/react-start'
+import { z } from 'zod'
 import {
   applyMutationToCart,
+  cartMutationSchema,
   EMPTY_CART,
   type CartMutation,
   type DetailedCart,
   type DetailedCartLine,
 } from '#/lib/cart-mutation'
+import {
+  addToCart,
+  clearCart,
+  getCartDetailed,
+  removeFromCart,
+  setCartLineQuantity,
+} from '#/lib/cart'
+import { getOrder as getOrderFromStore } from '#/lib/orders'
+import { sessionMiddleware } from '#/lib/session-middleware'
+
+function applyMutation(input: CartMutation): void {
+  if (input.action === 'clear') {
+    clearCart()
+    return
+  }
+  const width = input.width ?? 'standard'
+  if (input.action === 'add') {
+    addToCart({
+      productId: input.productId,
+      size: input.size,
+      width,
+      quantity: input.quantity ?? 1,
+    })
+    return
+  }
+  if (input.action === 'set') {
+    setCartLineQuantity({
+      productId: input.productId,
+      size: input.size,
+      width,
+      quantity: input.quantity,
+    })
+    return
+  }
+  removeFromCart({ productId: input.productId, size: input.size, width })
+}
 
 export interface OrderShippingAddress {
   fullName: string
@@ -37,14 +76,22 @@ export interface OrderQueryData {
 
 export const cartQueryKey = ['cart'] as const
 
+export const getCart = createServerFn({ method: 'GET' })
+  .middleware([sessionMiddleware])
+  .handler((): DetailedCart => getCartDetailed())
+
+export const mutateCart = createServerFn({ method: 'POST' })
+  .middleware([sessionMiddleware])
+  .inputValidator(cartMutationSchema)
+  .handler(({ data }): DetailedCart => {
+    applyMutation(data)
+    return getCartDetailed()
+  })
+
 export function cartQueryOptions() {
   return queryOptions({
     queryKey: cartQueryKey,
-    queryFn: async () => {
-      const res = await fetch('/api/cart')
-      if (!res.ok) throw new Error(`Cart fetch failed: ${res.status}`)
-      return (await res.json()) as DetailedCart
-    },
+    queryFn: () => getCart(),
   })
 }
 
@@ -60,15 +107,7 @@ export function useCartCount(): number {
 export function useCartMutation() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (body: CartMutation) => {
-      const res = await fetch('/api/cart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) throw new Error(`Cart update failed: ${res.status}`)
-      return (await res.json()) as DetailedCart
-    },
+    mutationFn: (body: CartMutation) => mutateCart({ data: body }),
     onMutate: async (body) => {
       await queryClient.cancelQueries({ queryKey: cartQueryKey })
       const prev = queryClient.getQueryData<DetailedCart>(cartQueryKey)
@@ -90,8 +129,6 @@ export function invalidateCart(queryClient: QueryClient): Promise<void> {
   return queryClient.invalidateQueries({ queryKey: cartQueryKey })
 }
 
-type ServerOrder = Omit<OrderQueryData, 'orderId'> & { id: string }
-
 export class OrderNotFoundError extends Error {
   constructor() {
     super('Order not found')
@@ -99,15 +136,26 @@ export class OrderNotFoundError extends Error {
   }
 }
 
+// Server fns serialize errors via Seroval, which strips Error subclass
+// identity (and even `.name`) across the wire. Return null for the
+// not-found case and let the client-side queryFn throw the typed error.
+export const getOrder = createServerFn({ method: 'GET' })
+  .middleware([sessionMiddleware])
+  .inputValidator(z.object({ orderId: z.string().min(1) }))
+  .handler(({ data }): OrderQueryData | null => {
+    const order = getOrderFromStore(data.orderId)
+    if (!order) return null
+    const { id, status: _status, createdAt: _createdAt, ...rest } = order
+    return { ...rest, orderId: id }
+  })
+
 export function orderQueryOptions(orderId: string) {
   return queryOptions({
     queryKey: ['order', orderId] as const,
-    queryFn: async (): Promise<OrderQueryData> => {
-      const res = await fetch(`/api/orders/${orderId}`)
-      if (res.status === 404) throw new OrderNotFoundError()
-      if (!res.ok) throw new Error(`Order fetch failed: ${res.status}`)
-      const { id, ...rest } = (await res.json()) as ServerOrder
-      return { ...rest, orderId: id }
+    queryFn: async () => {
+      const result = await getOrder({ data: { orderId } })
+      if (result === null) throw new OrderNotFoundError()
+      return result
     },
     retry: false,
   })

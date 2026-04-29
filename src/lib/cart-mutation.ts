@@ -1,11 +1,34 @@
-import { PRODUCT_BY_ID, type Width } from '#/lib/catalog'
+import { z } from 'zod'
+import { PRODUCT_BY_ID, WIDTHS, type Width } from '#/lib/catalog'
 import { cartLineKey } from '#/lib/cart-key'
 
-export type CartMutation =
-  | { action: 'add'; productId: string; size: string; width?: Width; quantity?: number }
-  | { action: 'set'; productId: string; size: string; width?: Width; quantity: number }
-  | { action: 'remove'; productId: string; size: string; width?: Width }
-  | { action: 'clear' }
+const widthSchema = z.enum(WIDTHS)
+
+export const cartMutationSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('add'),
+    productId: z.string(),
+    size: z.string(),
+    width: widthSchema.optional(),
+    quantity: z.number().int().positive().optional(),
+  }),
+  z.object({
+    action: z.literal('set'),
+    productId: z.string(),
+    size: z.string(),
+    width: widthSchema.optional(),
+    quantity: z.number().int().nonnegative(),
+  }),
+  z.object({
+    action: z.literal('remove'),
+    productId: z.string(),
+    size: z.string(),
+    width: widthSchema.optional(),
+  }),
+  z.object({ action: z.literal('clear') }),
+])
+
+export type CartMutation = z.infer<typeof cartMutationSchema>
 
 export interface DetailedCartLine {
   productId: string

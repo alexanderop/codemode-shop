@@ -1,7 +1,9 @@
 import { z } from 'zod'
+import { WIDTHS } from '#/lib/catalog'
 import type { ComponentType } from '#/features/storefront/types/ui-types'
 
-const widthSchema = z.enum(['narrow', 'standard', 'wide'])
+const widthSchema = z.enum(WIDTHS)
+const widthUnion = WIDTHS.map((w) => `'${w}'`).join(' | ')
 
 export type UIPrimitiveDefinition = {
   type: ComponentType
@@ -157,7 +159,7 @@ export const storefrontUIPrimitives = [
   payload: {
     productId: string
     size: string
-    width?: 'narrow' | 'standard' | 'wide'
+    width?: ${widthUnion}
     quantity?: number
   }
   variant?: 'primary' | 'secondary'
@@ -205,7 +207,7 @@ export const storefrontUIPrimitives = [
     type: 'checkoutForm',
     functionName: 'ui_addCheckoutForm',
     description:
-      'Render an interactive checkout form (address + fake payment). The shopper fills it in and submits — submission posts to /api/checkout, runs the fake payment, places the order, and navigates to the order confirmation page. Use this when the shopper says they want to check out / pay / place the order, instead of trying to collect their address and card number through chat.',
+      'Render an interactive checkout form (address + fake payment). The shopper fills it in and submits — submission runs the fake payment, places the order, and navigates to the order confirmation page. Use this when the shopper says they want to check out / pay / place the order, instead of trying to collect their address and card number through chat.',
     propsShape: {
       subtotal: z.number(),
       lineCount: z.number(),

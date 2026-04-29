@@ -1,9 +1,12 @@
+import { vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 import { CheckoutForm } from '#/features/storefront/components/canvas/checkout-form'
 import type { CheckoutFormProps } from '#/features/storefront/types/ui-types'
-import { cartQueryKey } from '#/queries/cart'
+import { cartQueryKey, getCart } from '#/queries/cart'
 import type { DetailedCart, DetailedCartLine } from '#/lib/cart-mutation'
 import { renderWithQuery } from '../with-query'
+
+const getCartMock = vi.mocked(getCart)
 
 export const checkoutFormProps = (overrides?: Partial<CheckoutFormProps>): CheckoutFormProps => ({
   subtotal: 139,
@@ -39,6 +42,7 @@ export async function renderCheckoutForm(overrides?: Partial<CheckoutFormProps>)
     subtotal: props.subtotal,
   }
   queryClient.setQueryData(cartQueryKey, cart)
+  getCartMock.mockResolvedValue(cart)
   const { screen } = await renderWithQuery(<CheckoutForm {...props} />, queryClient)
   return {
     screen,

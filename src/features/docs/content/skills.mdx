@@ -82,8 +82,6 @@ Storage is scoped by `sessionId`. The skill folder is `./.skills/users/<sessionI
 - Skills are private to the shopper. _My_ "wide_trail_friday" can't leak into _your_ session, even if you ask the same question.
 - Wiping the cookie (or starting an incognito session) gives the model a clean slate, which is useful for testing.
 
-There's a `DELETE /api/skills/:name` endpoint (`src/app/routes/api.skills.$name.ts`) that lets a session prune a single skill, cache included.
-
 ## Trust
 
 Upstream `@tanstack/ai-code-mode-skills` ships a trust-progression model — skills start `untrusted`, become `provisional` after some successful runs, then `trusted`. This project bypasses that progression and saves every passing skill as `trustLevel: 'trusted'` immediately. The reasoning: the static `classifySkillCode` gate already enforces the read-only invariant before any code lands on disk, and the sandbox enforces it again at run time. Adding a runtime trust ladder on top would add ceremony without adding safety.

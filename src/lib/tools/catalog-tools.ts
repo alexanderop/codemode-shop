@@ -5,6 +5,7 @@ import {
   PRODUCT_BY_ID,
   REVIEWS,
   SEARCH_HAYSTACK,
+  WIDTHS,
   buildPriceHistory,
   findStock,
   shippingEtaDays,
@@ -20,7 +21,7 @@ import { getOrder as getOrderState, placeOrder as placeOrderState } from '#/lib/
 import { processFakePayment } from '#/lib/payment'
 import { sessionContext, type SessionId } from '#/lib/session-context'
 
-const widthSchema = z.enum(['narrow', 'standard', 'wide'])
+const widthSchema = z.enum(WIDTHS)
 const categories = ['Running', 'Lifestyle', 'Trail', 'Basketball', 'Training', 'Racing'] as const
 const categorySchema = z.preprocess((value) => {
   if (typeof value !== 'string') return value
@@ -196,7 +197,7 @@ export const getReviewSummary = toolDefinition({
 }).server(({ productId }) => {
   const p = PRODUCT_BY_ID.get(productId)
   const r = REVIEWS[productId]
-  if (!p || !r) throw new Error(`No reviews for ${productId}`)
+  if (!p || !r) throw new Error(`Unknown product: ${productId}`)
   return {
     averageRating: r.rating,
     reviewCount: p.reviewCount,

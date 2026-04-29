@@ -51,7 +51,7 @@ external_getOrder({ id }): Promise<Order>
 
 **Checkout** ("check out", "place my order", "let me pay"):
 1. \`external_getCart()\` to confirm non-empty.
-2. Render \`ui_addCheckoutForm({ id: 'checkout', subtotal, lineCount })\`. The form posts directly to /api/checkout — you do NOTHING else.
+2. Render \`ui_addCheckoutForm({ id: 'checkout', subtotal, lineCount })\`. The form handles checkout itself — you do NOTHING else.
 3. Return a one-sentence prompt like "Fill in your address and card and you're done."
 
 > Never call \`external_placeOrder\` from a chat message. The checkout form is the only legitimate path; card details must come from the form, not the conversation.

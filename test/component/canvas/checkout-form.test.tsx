@@ -12,23 +12,20 @@ vi.mock('sonner', () => ({
   toast: { error: (...args: Array<unknown>) => toastErrorMock(...args) },
 }))
 
+import { checkout } from '#/queries/checkout'
 import { renderCheckoutForm } from './checkout-form.page'
+
+const checkoutMock = vi.mocked(checkout)
 
 beforeEach(() => {
   navigateMock.mockReset()
   toastErrorMock.mockReset()
+  checkoutMock.mockReset()
 })
 
 afterEach(() => {
   vi.unstubAllGlobals()
 })
-
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
 
 describe('CheckoutForm', () => {
   it('shows the line count and subtotal in the header', async () => {
@@ -42,11 +39,8 @@ describe('CheckoutForm', () => {
   })
 
   it('disables the submit button while a request is in flight', async () => {
-    let resolve!: (res: Response) => void
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => new Promise<Response>((r) => (resolve = r))),
-    )
+    let resolve!: (value: { orderId: string }) => void
+    checkoutMock.mockReturnValueOnce(new Promise<{ orderId: string }>((r) => (resolve = r)))
 
     const view = await renderCheckoutForm()
     await view.submitButton().click()
@@ -55,11 +49,11 @@ describe('CheckoutForm', () => {
       .element(view.screen.getByRole('button', { name: /Processing payment/ }))
       .toBeDisabled()
 
-    resolve(jsonResponse({ orderId: 'ord_x' }))
+    resolve({ orderId: 'ord_x' })
   })
 
   it('navigates to the order page on a successful response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ orderId: 'ord_42' })))
+    checkoutMock.mockResolvedValueOnce({ orderId: 'ord_42' })
 
     const view = await renderCheckoutForm()
     await view.submitButton().click()
@@ -72,11 +66,8 @@ describe('CheckoutForm', () => {
     )
   })
 
-  it('toasts the server error message on a non-ok response', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(jsonResponse({ error: 'card declined' }, { status: 402 })),
-    )
+  it('toasts the thrown error message on a server-side failure', async () => {
+    checkoutMock.mockRejectedValueOnce(new Error('card declined'))
 
     const view = await renderCheckoutForm()
     await view.submitButton().click()
@@ -85,26 +76,8 @@ describe('CheckoutForm', () => {
     expect(navigateMock).not.toHaveBeenCalled()
   })
 
-  it('falls back to "Checkout failed" when the error response has no message', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({}, { status: 500 })))
-
-    const view = await renderCheckoutForm()
-    await view.submitButton().click()
-
-    await vi.waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith('Checkout failed'))
-  })
-
-  it('toasts the thrown error message when fetch rejects', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
-
-    const view = await renderCheckoutForm()
-    await view.submitButton().click()
-
-    await vi.waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith('offline'))
-  })
-
-  it('falls back to "Checkout failed" when fetch rejects with a non-Error', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue('boom'))
+  it('falls back to "Checkout failed" when rejection is a non-Error value', async () => {
+    checkoutMock.mockRejectedValueOnce('boom')
 
     const view = await renderCheckoutForm()
     await view.submitButton().click()
@@ -113,7 +86,7 @@ describe('CheckoutForm', () => {
   })
 
   it('re-enables the submit button after a successful submission', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ orderId: 'ord_42' })))
+    checkoutMock.mockResolvedValueOnce({ orderId: 'ord_42' })
 
     const view = await renderCheckoutForm()
     await view.submitButton().click()

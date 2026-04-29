@@ -8,31 +8,19 @@ vi.mock('sonner', () => ({
 
 import { uiStore } from '#/features/storefront/stores/ui-store'
 import { EMPTY_CART } from '#/lib/cart-mutation'
+import { mutateCart } from '#/queries/cart'
 import { cartItem, renderCartSummary } from './cart-summary.page'
 
-function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-}
-
-function lastCartPostBody(fetchMock: ReturnType<typeof vi.fn>): unknown {
-  const calls = fetchMock.mock.calls.filter(
-    (c) => c[0] === '/api/cart' && (c[1] as RequestInit | undefined)?.method === 'POST',
-  )
-  const last = calls[calls.length - 1]
-  if (!last) throw new Error('No POST /api/cart was made')
-  return JSON.parse(((last[1] as RequestInit).body as string) ?? '{}')
-}
+const mutateCartMock = vi.mocked(mutateCart)
 
 beforeEach(() => {
   toastErrorMock.mockReset()
+  mutateCartMock.mockReset()
+  mutateCartMock.mockResolvedValue(EMPTY_CART)
 })
 
 afterEach(() => {
   uiStore.clear()
-  vi.unstubAllGlobals()
 })
 
 describe('CartSummary', () => {
@@ -68,54 +56,54 @@ describe('CartSummary', () => {
   })
 
   it('dispatches a "set" mutation with quantity-1 when decrease is clicked', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(EMPTY_CART))
-    vi.stubGlobal('fetch', fetchMock)
     const view = await renderCartSummary({ items: [cartItem({ quantity: 3 })] })
     await view.decreaseFor().click()
     await vi.waitFor(() =>
-      expect(lastCartPostBody(fetchMock)).toEqual({
-        action: 'set',
-        productId: 'p1',
-        size: '10',
-        width: 'standard',
-        quantity: 2,
+      expect(mutateCartMock).toHaveBeenCalledWith({
+        data: {
+          action: 'set',
+          productId: 'p1',
+          size: '10',
+          width: 'standard',
+          quantity: 2,
+        },
       }),
     )
   })
 
   it('dispatches a "set" mutation with quantity+1 when increase is clicked', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(EMPTY_CART))
-    vi.stubGlobal('fetch', fetchMock)
     const view = await renderCartSummary({ items: [cartItem({ quantity: 1 })] })
     await view.increaseFor().click()
     await vi.waitFor(() =>
-      expect(lastCartPostBody(fetchMock)).toEqual({
-        action: 'set',
-        productId: 'p1',
-        size: '10',
-        width: 'standard',
-        quantity: 2,
+      expect(mutateCartMock).toHaveBeenCalledWith({
+        data: {
+          action: 'set',
+          productId: 'p1',
+          size: '10',
+          width: 'standard',
+          quantity: 2,
+        },
       }),
     )
   })
 
   it('dispatches a "remove" mutation when the trash button is clicked', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(EMPTY_CART))
-    vi.stubGlobal('fetch', fetchMock)
     const view = await renderCartSummary()
     await view.removeFor().click()
     await vi.waitFor(() =>
-      expect(lastCartPostBody(fetchMock)).toEqual({
-        action: 'remove',
-        productId: 'p1',
-        size: '10',
-        width: 'standard',
+      expect(mutateCartMock).toHaveBeenCalledWith({
+        data: {
+          action: 'remove',
+          productId: 'p1',
+          size: '10',
+          width: 'standard',
+        },
       }),
     )
   })
 
   it('toasts the error message when a mutation rejects', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+    mutateCartMock.mockRejectedValueOnce(new Error('offline'))
     const view = await renderCartSummary()
     await view.removeFor().click()
     await vi.waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith('offline'))

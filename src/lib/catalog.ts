@@ -1,6 +1,7 @@
 export type ShoeCategory = 'Running' | 'Lifestyle' | 'Trail' | 'Basketball' | 'Training' | 'Racing'
 
-export type Width = 'narrow' | 'standard' | 'wide'
+export const WIDTHS = ['narrow', 'standard', 'wide'] as const
+export type Width = (typeof WIDTHS)[number]
 
 export interface Product {
   id: string
