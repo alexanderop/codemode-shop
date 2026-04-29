@@ -18,6 +18,7 @@
 - [[principles/prefer-one-source-of-truth]]
 - [[principles/subscribe-dont-snapshot]]
 - [[principles/serialize-shared-state-mutations]]
+- [[principles/effects-only-for-external-sync]]
 
 ## Verification
 

@@ -13,7 +13,6 @@ import { KeyboardCheatsheet } from '#/components/keyboard-cheatsheet'
 import { assistantUi, useAssistantOpen } from '#/stores/assistant-ui'
 import { cheatsheetUi, useCheatsheetOpen } from '#/stores/cheatsheet-ui'
 import { cartQueryOptions } from '#/queries/cart'
-import { AiActionConfirm } from '#/features/ai-ui/ai-action-confirm'
 import { useAiActionHandler } from '#/features/ai-ui/use-ai-action'
 import { aiUiStore } from '#/features/ai-ui/store'
 import {
@@ -116,7 +115,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           onCustomEvent={handleDrawerCustomEvent}
         />
         <KeyboardCheatsheet open={cheatsheetOpen} onOpenChange={cheatsheetUi.set} />
-        <AiActionConfirm />
         <Toaster position="top-center" />
         <TanStackDevtools
           config={{

@@ -28,13 +28,13 @@ type BandTone = 'slate' | 'emerald' | 'amber' | 'red' | 'sky'
 function toneClasses(tone: BandTone): string {
   switch (tone) {
     case 'emerald':
-      return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+      return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
     case 'amber':
-      return 'border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-300'
+      return 'border-amber-500/50 bg-amber-500/10 text-amber-300'
     case 'red':
-      return 'border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-300'
+      return 'border-red-500/50 bg-red-500/10 text-red-300'
     case 'sky':
-      return 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-300'
+      return 'border-sky-500/40 bg-sky-500/10 text-sky-300'
     default:
       return 'border-border bg-muted/40 text-muted-foreground'
   }
@@ -153,17 +153,11 @@ function CallRow({ call, indent }: { call: ExternalCall; indent: boolean }) {
     <div className={cn('flex items-start gap-2 font-mono text-[11px] leading-5', indent && 'pl-4')}>
       <span className="shrink-0 select-none text-muted-foreground">{indent ? '├─' : '─'}</span>
       <span className="min-w-0 flex-1">
-        <span className={cn(call.kind === 'render' && 'text-violet-600 dark:text-violet-400')}>
-          {call.function}
-        </span>
+        <span className={cn(call.kind === 'render' && 'text-violet-400')}>{call.function}</span>
         <span className="text-muted-foreground">({formatArgs(call.args)})</span>
-        {failed && (
-          <span className="ml-2 text-red-600 dark:text-red-400">✗ {truncate(call.error!, 80)}</span>
-        )}
+        {failed && <span className="ml-2 text-red-400">✗ {truncate(call.error!, 80)}</span>}
         {!failed && !pending && (
-          <span className="ml-2 text-emerald-700 dark:text-emerald-400">
-            ✓ {formatResult(call.result)}
-          </span>
+          <span className="ml-2 text-emerald-400">✓ {formatResult(call.result)}</span>
         )}
         {pending && <span className="ml-2 text-muted-foreground">…</span>}
       </span>
@@ -189,9 +183,7 @@ function GroupRow({ group }: { group: Group }) {
       <div className="flex items-center gap-1.5 px-2 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
         <Zap className="h-3 w-3" />
         parallel · {total}ms · {okCount} ok
-        {failCount > 0 && (
-          <span className="text-red-600 dark:text-red-400">, {failCount} failed</span>
-        )}
+        {failCount > 0 && <span className="text-red-400">, {failCount} failed</span>}
         {pendingCount > 0 && <span>, {pendingCount} pending</span>}
       </div>
       {group.calls.map((c) => (
@@ -269,17 +261,20 @@ function CodeTab({ turn }: { turn: TurnActivity }) {
 
 function CopyCodeButton({ code }: { code: string }) {
   const [copied, setCopied] = useState(false)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    if (!copied) return
-    const id = setTimeout(() => setCopied(false), 1500)
-    return () => clearTimeout(id)
-  }, [copied])
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    }
+  }, [])
 
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(code)
       setCopied(true)
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+      resetTimerRef.current = setTimeout(() => setCopied(false), 1500)
     } catch {
       // clipboard unavailable (insecure context, etc.) — silent fail
     }
@@ -311,9 +306,9 @@ function LogsTab({ turn }: { turn: TurnActivity }) {
         <div
           key={l.id}
           className={cn(
-            l.level === 'error' && 'text-red-600 dark:text-red-400',
-            l.level === 'warn' && 'text-amber-700 dark:text-amber-400',
-            l.level === 'info' && 'text-sky-700 dark:text-sky-400',
+            l.level === 'error' && 'text-red-400',
+            l.level === 'warn' && 'text-amber-400',
+            l.level === 'info' && 'text-sky-400',
           )}
         >
           <span className="mr-2 text-muted-foreground">[{l.level}]</span>
@@ -328,12 +323,8 @@ function ResultTab({ turn }: { turn: TurnActivity }) {
   if (turn.terminalError) {
     return (
       <div className="space-y-2 p-3 text-xs">
-        <div className="font-semibold text-red-700 dark:text-red-400">
-          {turn.terminalError.name ?? 'Error'}
-        </div>
-        <div className="font-mono text-[11px] text-red-700 dark:text-red-400">
-          {turn.terminalError.message}
-        </div>
+        <div className="font-semibold text-red-400">{turn.terminalError.name ?? 'Error'}</div>
+        <div className="font-mono text-[11px] text-red-400">{turn.terminalError.message}</div>
       </div>
     )
   }
@@ -511,7 +502,7 @@ export function ProgramCard({
       )}
     >
       <Collapsible.Root open={open} onOpenChange={setOpen}>
-        <div className="flex items-center gap-1 px-3 py-2 transition hover:bg-black/5 dark:hover:bg-white/5">
+        <div className="flex items-center gap-1 px-3 py-2 transition hover:bg-white/5">
           <Collapsible.Trigger asChild>
             <button
               type="button"
@@ -610,7 +601,7 @@ export function PriorAttemptChip({
     <button
       type="button"
       onClick={onExpand}
-      className="inline-flex items-center gap-2 rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-700 transition hover:bg-red-500/15 dark:text-red-300"
+      className="inline-flex items-center gap-2 rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-300 transition hover:bg-red-500/15"
     >
       <AlertTriangle className="h-3 w-3" />
       Attempt {index + 1} failed · {error.name ?? 'Error'}:{' '}

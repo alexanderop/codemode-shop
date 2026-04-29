@@ -13,9 +13,8 @@ function statusOf(skill: SkillReplayActivity): SkillStatus {
 }
 
 function toneClasses(status: SkillStatus): string {
-  if (status === 'failed') return 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300'
-  if (status === 'ok')
-    return 'border-violet-500/40 bg-violet-500/10 text-violet-800 dark:text-violet-300'
+  if (status === 'failed') return 'border-red-500/40 bg-red-500/10 text-red-300'
+  if (status === 'ok') return 'border-violet-500/40 bg-violet-500/10 text-violet-300'
   return 'border-border bg-muted/40 text-muted-foreground'
 }
 
@@ -58,17 +57,11 @@ function CallRow({ call }: { call: ExternalCall }) {
     <div className="flex items-start gap-2 pl-4 font-mono text-[11px] leading-5">
       <span className="shrink-0 select-none text-muted-foreground">├─</span>
       <span className="min-w-0 flex-1">
-        <span className={cn(call.kind === 'render' && 'text-violet-600 dark:text-violet-400')}>
-          {call.function}
-        </span>
+        <span className={cn(call.kind === 'render' && 'text-violet-400')}>{call.function}</span>
         <span className="text-muted-foreground">({formatPreview(call.args, 80)})</span>
-        {failed && (
-          <span className="ml-2 text-red-600 dark:text-red-400">✗ {truncate(call.error!, 80)}</span>
-        )}
+        {failed && <span className="ml-2 text-red-400">✗ {truncate(call.error!, 80)}</span>}
         {!failed && !pending && (
-          <span className="ml-2 text-emerald-700 dark:text-emerald-400">
-            ✓ {formatPreview(call.result, 60)}
-          </span>
+          <span className="ml-2 text-emerald-400">✓ {formatPreview(call.result, 60)}</span>
         )}
         {pending && <span className="ml-2 text-muted-foreground">…</span>}
       </span>
@@ -92,7 +85,7 @@ export function SkillCard({ skill }: { skill: SkillReplayActivity }) {
         <Collapsible.Trigger asChild>
           <button
             type="button"
-            className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-black/5 dark:hover:bg-white/5"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-white/5"
             disabled={!hasDetails}
           >
             <Bookmark className="h-3.5 w-3.5 shrink-0 opacity-70" />
@@ -127,7 +120,7 @@ export function SkillCard({ skill }: { skill: SkillReplayActivity }) {
               </div>
             )}
             {skill.error && (
-              <div className="flex items-start gap-2 rounded border border-red-500/30 bg-red-500/10 p-2 font-mono text-[11px] text-red-700 dark:text-red-300">
+              <div className="flex items-start gap-2 rounded border border-red-500/30 bg-red-500/10 p-2 font-mono text-[11px] text-red-300">
                 <AlertTriangle className="h-3 w-3 shrink-0" />
                 <span>{skill.error}</span>
               </div>
@@ -147,7 +140,7 @@ export function SkillCard({ skill }: { skill: SkillReplayActivity }) {
 
 export function SkillRegisteredBadge({ name }: { name: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-300">
+    <span className="inline-flex items-center gap-1 rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-300">
       <Bookmark className="h-3 w-3" />
       Saved as skill · {name}
     </span>

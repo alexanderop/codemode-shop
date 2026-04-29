@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { queryOptions, useQuery } from '@tanstack/react-query'
 import { Check, ChevronDown, Copy, FileText } from 'lucide-react'
 import {
   Sheet,
@@ -21,6 +22,20 @@ interface PromptSection {
 
 interface PromptResponse {
   sections: Array<PromptSection>
+}
+
+function systemPromptQueryOptions(zipCode: string, enabled: boolean) {
+  return queryOptions({
+    queryKey: ['storefront-agent-prompt', zipCode] as const,
+    queryFn: async (): Promise<Array<PromptSection>> => {
+      const res = await fetch(`/api/storefront-agent?zipCode=${encodeURIComponent(zipCode)}`)
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`)
+      const json = (await res.json()) as PromptResponse
+      return json.sections
+    },
+    enabled,
+    staleTime: 60_000,
+  })
 }
 
 const ORIGIN_META: Record<PromptOrigin, { label: string; tooltip: string; className: string }> = {
@@ -50,32 +65,14 @@ export function SystemPromptSheet({
   onOpenChange: (v: boolean) => void
   zipCode: string
 }) {
-  const [sections, setSections] = useState<Array<PromptSection> | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { data: sections, error } = useQuery(systemPromptQueryOptions(zipCode, open))
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    let cancelled = false
-    setError(null)
-    void (async () => {
-      try {
-        const res = await fetch(`/api/storefront-agent?zipCode=${encodeURIComponent(zipCode)}`)
-        if (!res.ok) throw new Error(`Request failed: ${res.status}`)
-        const json = (await res.json()) as PromptResponse
-        if (cancelled) return
-        setSections(json.sections)
-        setExpanded(Object.fromEntries(json.sections.map((_, i) => [String(i), i === 0])))
-      } catch (err) {
-        if (cancelled) return
-        setError(err instanceof Error ? err.message : 'Failed to load')
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [open, zipCode])
+  const errorMessage = error ? (error instanceof Error ? error.message : 'Failed to load') : null
+  const defaultExpanded = useMemo<Record<string, boolean>>(
+    () => (sections ? Object.fromEntries(sections.map((_, i) => [String(i), i === 0])) : {}),
+    [sections],
+  )
 
   async function copyAll() {
     if (!sections) return
@@ -137,12 +134,12 @@ export function SystemPromptSheet({
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {error && (
+          {errorMessage && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-              {error}
+              {errorMessage}
             </div>
           )}
-          {!error && !sections && (
+          {!errorMessage && !sections && (
             <div className="space-y-2">
               <div className="h-8 animate-pulse rounded-md bg-muted" />
               <div className="h-32 animate-pulse rounded-md bg-muted" />
@@ -153,7 +150,7 @@ export function SystemPromptSheet({
             <div className="space-y-2">
               {sections.map((section, i) => {
                 const key = String(i)
-                const isOpen = expanded[key] ?? false
+                const isOpen = expanded[key] ?? defaultExpanded[key] ?? false
                 const meta = ORIGIN_META[section.origin]
                 return (
                   <section
@@ -162,7 +159,7 @@ export function SystemPromptSheet({
                   >
                     <button
                       type="button"
-                      onClick={() => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))}
+                      onClick={() => setExpanded((prev) => ({ ...prev, [key]: !isOpen }))}
                       className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition hover:bg-muted/50"
                       aria-expanded={isOpen}
                     >

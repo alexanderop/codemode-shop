@@ -20,7 +20,7 @@ function formatArrival(iso: string): string {
 export function OrderConfirmation(props: OrderConfirmationProps) {
   return (
     <div className="overflow-hidden rounded-xl border bg-card text-sm shadow-sm">
-      <div className="flex items-center gap-2 border-b bg-emerald-500/10 px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-300">
+      <div className="flex items-center gap-2 border-b bg-emerald-500/10 px-4 py-3 font-semibold text-emerald-300">
         <CheckCircle2 className="h-4 w-4" />
         Order confirmed
       </div>

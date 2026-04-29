@@ -460,7 +460,7 @@ export function StorekeeperDrawer({
                     {textParts.length > 0 && (
                       <div
                         className={cn(
-                          'prose prose-sm dark:prose-invert max-w-none rounded-lg bg-muted px-3 py-2 text-sm',
+                          'prose prose-sm prose-invert max-w-none rounded-lg bg-muted px-3 py-2 text-sm',
                           'prose-p:text-foreground prose-strong:text-foreground prose-code:text-foreground',
                           'prose-a:text-brand-fg prose-a:underline prose-a:decoration-brand-fg/40 prose-a:underline-offset-2 hover:prose-a:decoration-brand-fg',
                           'prose-ul:my-2 prose-li:my-0.5 prose-li:marker:text-fg-subtle',

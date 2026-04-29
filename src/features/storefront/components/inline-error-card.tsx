@@ -16,12 +16,12 @@ export function InlineErrorCard({
   onAskDifferently?: () => void
 }) {
   return (
-    <div className="mr-auto max-w-[85%] rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-xs text-red-900 dark:text-red-200">
+    <div className="mr-auto max-w-[85%] rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-xs text-red-200">
       <div className="flex items-start gap-2">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="font-semibold">{title}</div>
-          <div className="text-red-800/90 dark:text-red-300/90">{message}</div>
+          <div className="text-red-300/90">{message}</div>
           {details && (
             <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-red-500/10 p-2 font-mono text-[10px] leading-4">
               {details}
