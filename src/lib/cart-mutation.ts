@@ -1,6 +1,9 @@
 import { z } from 'zod'
 import { PRODUCT_BY_ID, WIDTHS, type Width } from '#/lib/catalog'
-import { cartLineKey } from '#/lib/cart-key'
+
+export function cartLineKey(productId: string, size: string, width: Width) {
+  return `${productId}|${size}|${width}`
+}
 
 const widthSchema = z.enum(WIDTHS)
 

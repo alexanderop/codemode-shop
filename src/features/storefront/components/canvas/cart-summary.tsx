@@ -6,7 +6,7 @@ import { currency } from '#/lib/format'
 import { errorMessage } from '#/lib/utils'
 import { uiStore } from '#/features/storefront/stores/ui-store'
 import { useCart, useCartMutation } from '#/queries/cart'
-import { cartLineKey } from '#/lib/cart-key'
+import { cartLineKey } from '#/lib/cart-mutation'
 import type { CartSummaryProps } from '#/features/storefront/types/ui-types'
 
 function mountCheckoutForm(subtotal: number, lineCount: number) {

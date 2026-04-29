@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
-import { getCartDetailed } from '#/lib/cart'
+import { getCart } from '#/lib/cart'
 import { placeOrder } from '#/lib/orders'
 import { processFakePayment } from '#/lib/payment'
 import { sessionMiddleware } from '#/lib/session-middleware'
@@ -25,7 +25,7 @@ export const checkout = createServerFn({ method: 'POST' })
   .middleware([sessionMiddleware])
   .inputValidator(checkoutSchema)
   .handler(async ({ data }): Promise<{ orderId: string }> => {
-    const cart = getCartDetailed()
+    const cart = getCart()
     if (cart.items.length === 0) {
       throw new Error('Cart is empty')
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addToCart, getCartDetailed } from '#/lib/cart'
+import { getCart, mutateCart } from '#/lib/cart'
 import { getOrder, placeOrder, type ShippingAddress } from '#/lib/orders'
 import { withTestSession } from '#/lib/test-utils/with-session'
 import { sessionContext } from '#/lib/session-context'
@@ -20,8 +20,14 @@ describe('placeOrder', () => {
 
   it('snapshots cart, mints id, computes totals, and clears cart', () =>
     withTestSession(() => {
-      addToCart({ productId: 'shoe-01', size: '10', width: 'standard', quantity: 2 })
-      const subtotal = getCartDetailed().subtotal
+      mutateCart({
+        action: 'add',
+        productId: 'shoe-01',
+        size: '10',
+        width: 'standard',
+        quantity: 2,
+      })
+      const subtotal = getCart().subtotal
       const order = placeOrder({ shippingAddress: ADDRESS, paymentLast4: '4242' })
 
       expect(order.id).toMatch(/^ord_[0-9a-f-]{36}$/)
@@ -34,12 +40,18 @@ describe('placeOrder', () => {
       expect(order.status).toBe('placed')
       expect(order.arrivesBy).toMatch(/^\d{4}-\d{2}-\d{2}$/)
 
-      expect(getCartDetailed().items).toHaveLength(0)
+      expect(getCart().items).toHaveLength(0)
     }))
 
   it('getOrder returns the placed order, undefined for unknown id', () =>
     withTestSession(() => {
-      addToCart({ productId: 'shoe-01', size: '10', width: 'standard', quantity: 1 })
+      mutateCart({
+        action: 'add',
+        productId: 'shoe-01',
+        size: '10',
+        width: 'standard',
+        quantity: 1,
+      })
       const order = placeOrder({ shippingAddress: ADDRESS, paymentLast4: '4242' })
       expect(getOrder(order.id)).toEqual(order)
       expect(getOrder('ord_doesnotexist')).toBeUndefined()
@@ -49,7 +61,13 @@ describe('placeOrder', () => {
 describe('session isolation', () => {
   it('getOrder does not leak across sessions', () => {
     const placedId = withTestSession(() => {
-      addToCart({ productId: 'shoe-01', size: '10', width: 'standard', quantity: 1 })
+      mutateCart({
+        action: 'add',
+        productId: 'shoe-01',
+        size: '10',
+        width: 'standard',
+        quantity: 1,
+      })
       return placeOrder({ shippingAddress: ADDRESS, paymentLast4: '4242' }).id
     }, 'session-A')
 

@@ -1,5 +1,5 @@
 import { shippingEtaDays } from '#/lib/catalog'
-import { clearCart, getCartDetailed, type DetailedCartLine } from '#/lib/cart'
+import { getCart, mutateCart, type DetailedCartLine } from '#/lib/cart'
 import { sessionContext, type SessionId } from '#/lib/session-context'
 
 export interface ShippingAddress {
@@ -64,7 +64,7 @@ export function placeOrder(input: {
   shippingAddress: ShippingAddress
   paymentLast4: string
 }): Order {
-  const cart = getCartDetailed()
+  const cart = getCart()
   if (cart.items.length === 0) {
     throw new Error('Cannot place an order with an empty cart')
   }
@@ -86,7 +86,7 @@ export function placeOrder(input: {
     createdAt: new Date().toISOString(),
   }
   getOrdersForSession().set(order.id, order)
-  clearCart()
+  mutateCart({ action: 'clear' })
   return order
 }
 

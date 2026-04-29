@@ -15,42 +15,9 @@ import {
   type DetailedCart,
   type DetailedCartLine,
 } from '#/lib/cart-mutation'
-import {
-  addToCart,
-  clearCart,
-  getCartDetailed,
-  removeFromCart,
-  setCartLineQuantity,
-} from '#/lib/cart'
+import { getCart as readCart, mutateCart as applyCartMutation } from '#/lib/cart'
 import { getOrder as getOrderFromStore } from '#/lib/orders'
 import { sessionMiddleware } from '#/lib/session-middleware'
-
-function applyMutation(input: CartMutation): void {
-  if (input.action === 'clear') {
-    clearCart()
-    return
-  }
-  const width = input.width ?? 'standard'
-  if (input.action === 'add') {
-    addToCart({
-      productId: input.productId,
-      size: input.size,
-      width,
-      quantity: input.quantity ?? 1,
-    })
-    return
-  }
-  if (input.action === 'set') {
-    setCartLineQuantity({
-      productId: input.productId,
-      size: input.size,
-      width,
-      quantity: input.quantity,
-    })
-    return
-  }
-  removeFromCart({ productId: input.productId, size: input.size, width })
-}
 
 export interface OrderShippingAddress {
   fullName: string
@@ -78,15 +45,12 @@ export const cartQueryKey = ['cart'] as const
 
 export const getCart = createServerFn({ method: 'GET' })
   .middleware([sessionMiddleware])
-  .handler((): DetailedCart => getCartDetailed())
+  .handler((): DetailedCart => readCart())
 
 export const mutateCart = createServerFn({ method: 'POST' })
   .middleware([sessionMiddleware])
   .inputValidator(cartMutationSchema)
-  .handler(({ data }): DetailedCart => {
-    applyMutation(data)
-    return getCartDetailed()
-  })
+  .handler(({ data }): DetailedCart => applyCartMutation(data))
 
 export function cartQueryOptions() {
   return queryOptions({

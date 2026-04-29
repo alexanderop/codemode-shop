@@ -1,21 +1,24 @@
 # Cart state
 
-Session-scoped `Map<SessionId, Map<string, CartLine>>` in `src/lib/cart.ts`. Each request resolves its session via `sessionContext.get()` (`src/lib/session-context.ts` + `src/lib/session.ts`). **In-memory only — restart = empty.**
+Session-scoped `Map<SessionId, DetailedCart>` in `src/lib/cart.ts`. Each request resolves its session via `sessionContext.get()` (`src/lib/session-context.ts` + `src/lib/session.ts`). **In-memory only — restart = empty.**
 
-## Operations (server-side, called by both REST endpoints and sandbox tools)
+## The deep module
 
-- `addToCart({ productId, size, width, quantity })` — increments line qty for the current session
-- `removeFromCart({ productId, size, width })` — drops the line
-- `setCartLineQuantity({ productId, size, width, quantity })` — qty 0 removes
-- `clearCart()` — empties everything
-- `getCartDetailed()` — enriched lines + `itemCount` + `subtotal`
+`src/lib/cart-mutation.ts` owns the cart concept: `DetailedCart` value type, `CartMutation` discriminated union (`add | set | remove | clear`), `cartLineKey`, and the pure transform `applyMutationToCart(cart, mutation) → DetailedCart`. No `sessionContext` import — safe for client bundles.
+
+`src/lib/cart.ts` is the thin server bridge — two functions, ~20 lines:
+
+- `getCart(): DetailedCart` — read the current session's cart (returns `EMPTY_CART` when absent).
+- `mutateCart(mutation): DetailedCart` — `store.set(sid, applyMutationToCart(store.get(sid) ?? EMPTY_CART, mutation))`, return the new cart.
+
+The client side (`src/queries/cart.ts:useCartMutation`) calls `applyMutationToCart` for optimistic updates and the `mutateCart` ServerFn for the real write. **One transform drives both surfaces** — the client's optimistic and the server's actual mutation cannot drift.
 
 ## Two surfaces, one source of truth
 
 See [[principles/prefer-one-source-of-truth]] and [[architecture/checkout-flow]].
 
 - **REST**: `GET /api/cart`, `POST /api/cart` with `{ action: 'add' | 'set' | 'remove' | 'clear', ... }`. Used by the regular UI.
-- **Chat sandbox**: `external_addToCart`, `external_removeFromCart`, `external_setCartQuantity`, `external_clearCart`, `external_getCart`. These come from `createSessionScopedCatalogTools(sessionId)` in `src/lib/tools/catalog-tools.ts` — each session gets its own bound tool set so the sandbox can't see another session's cart. The bound tools wrap the same module functions that the REST endpoints call.
+- **Chat sandbox**: `external_addToCart`, `external_removeFromCart`, `external_setCartQuantity`, `external_clearCart`, `external_getCart`. These come from `createSessionScopedCatalogTools(sessionId)` in `src/lib/tools/catalog-tools.ts` — each session gets its own bound tool set so the sandbox can't see another session's cart. Each tool builds a `CartMutation` and calls `mutateCart` (or `getCart` for the reader).
 
 `external_placeOrder` and `external_getOrder` are part of the same session-scoped tool set — see [[architecture/orders]].
 

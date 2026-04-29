@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PRODUCTS, buildPriceHistory, shippingEtaDays } from '#/lib/catalog'
-import {
-  addToCart,
-  clearCart,
-  getCartDetailed,
-  removeFromCart,
-  setCartLineQuantity,
-  totalCartCount,
-} from '#/lib/cart'
+import { applyMutationToCart, EMPTY_CART } from '#/lib/cart-mutation'
+import { getCart, mutateCart } from '#/lib/cart'
 import { withTestSession } from '#/lib/test-utils/with-session'
 
 describe('catalog data', () => {
@@ -53,58 +47,111 @@ describe('buildPriceHistory', () => {
   })
 })
 
-describe('addToCart + totalCartCount', () => {
-  it('aggregates same SKU additions, splits distinct widths', () =>
-    withTestSession(() => {
-      const before = totalCartCount()
-      addToCart({ productId: 'p1', size: '10', width: 'standard', quantity: 1 })
-      addToCart({ productId: 'p1', size: '10', width: 'standard', quantity: 2 })
-      addToCart({ productId: 'p1', size: '10', width: 'wide', quantity: 1 })
-      const after = totalCartCount()
-      expect(after - before).toBe(4)
-    }))
+describe('applyMutationToCart', () => {
+  it('aggregates same SKU additions, splits distinct widths', () => {
+    const cart = [
+      { action: 'add', productId: 'p1', size: '10', width: 'standard', quantity: 1 },
+      { action: 'add', productId: 'p1', size: '10', width: 'standard', quantity: 2 },
+      { action: 'add', productId: 'p1', size: '10', width: 'wide', quantity: 1 },
+    ].reduce((acc, m) => applyMutationToCart(acc, m as never), EMPTY_CART)
+    expect(cart.itemCount).toBe(4)
+    expect(cart.items).toHaveLength(2)
+  })
+
+  it('remove drops the line entirely', () => {
+    const added = applyMutationToCart(EMPTY_CART, {
+      action: 'add',
+      productId: 'shoe-01',
+      size: '10',
+      width: 'standard',
+      quantity: 3,
+    })
+    expect(added.itemCount).toBe(3)
+    const removed = applyMutationToCart(added, {
+      action: 'remove',
+      productId: 'shoe-01',
+      size: '10',
+      width: 'standard',
+    })
+    expect(removed.itemCount).toBe(0)
+    expect(removed.items).toHaveLength(0)
+  })
+
+  it('set replaces the qty', () => {
+    const added = applyMutationToCart(EMPTY_CART, {
+      action: 'add',
+      productId: 'shoe-01',
+      size: '10',
+      width: 'standard',
+      quantity: 1,
+    })
+    const set = applyMutationToCart(added, {
+      action: 'set',
+      productId: 'shoe-01',
+      size: '10',
+      width: 'standard',
+      quantity: 5,
+    })
+    expect(set.itemCount).toBe(5)
+  })
+
+  it('set to 0 removes the line', () => {
+    const added = applyMutationToCart(EMPTY_CART, {
+      action: 'add',
+      productId: 'shoe-01',
+      size: '10',
+      width: 'standard',
+      quantity: 1,
+    })
+    const zeroed = applyMutationToCart(added, {
+      action: 'set',
+      productId: 'shoe-01',
+      size: '10',
+      width: 'standard',
+      quantity: 0,
+    })
+    expect(zeroed.itemCount).toBe(0)
+    expect(zeroed.items).toHaveLength(0)
+  })
+
+  it('clear empties everything', () => {
+    const built = [
+      { action: 'add', productId: 'shoe-01', size: '10', width: 'standard', quantity: 1 },
+      { action: 'add', productId: 'shoe-02', size: '11', width: 'standard', quantity: 2 },
+    ].reduce((acc, m) => applyMutationToCart(acc, m as never), EMPTY_CART)
+    const cleared = applyMutationToCart(built, { action: 'clear' })
+    expect(cleared.itemCount).toBe(0)
+    expect(cleared.items).toHaveLength(0)
+  })
+
+  it('enriches added lines with name + line totals', () => {
+    const cart = applyMutationToCart(EMPTY_CART, {
+      action: 'add',
+      productId: 'shoe-01',
+      size: '10',
+      width: 'standard',
+      quantity: 2,
+    })
+    expect(cart.items).toHaveLength(1)
+    expect(cart.items[0]!.name).toBe('Air Max 90')
+    expect(cart.items[0]!.lineTotal).toBe(cart.items[0]!.unitPrice * 2)
+    expect(cart.subtotal).toBe(cart.items[0]!.lineTotal)
+    expect(cart.itemCount).toBe(2)
+  })
 })
 
-describe('cart mutations', () => {
-  it('removeFromCart drops the line entirely', () =>
+describe('mutateCart (server bridge)', () => {
+  it('round-trips mutations through the session-scoped store', () =>
     withTestSession(() => {
-      addToCart({ productId: 'shoe-01', size: '10', width: 'standard', quantity: 3 })
-      expect(totalCartCount()).toBe(3)
-      removeFromCart({ productId: 'shoe-01', size: '10', width: 'standard' })
-      expect(totalCartCount()).toBe(0)
-    }))
-
-  it('setCartLineQuantity replaces the qty', () =>
-    withTestSession(() => {
-      addToCart({ productId: 'shoe-01', size: '10', width: 'standard', quantity: 1 })
-      setCartLineQuantity({ productId: 'shoe-01', size: '10', width: 'standard', quantity: 5 })
-      expect(totalCartCount()).toBe(5)
-    }))
-
-  it('setCartLineQuantity to 0 removes the line', () =>
-    withTestSession(() => {
-      addToCart({ productId: 'shoe-01', size: '10', width: 'standard', quantity: 1 })
-      setCartLineQuantity({ productId: 'shoe-01', size: '10', width: 'standard', quantity: 0 })
-      expect(totalCartCount()).toBe(0)
-    }))
-
-  it('clearCart empties everything', () =>
-    withTestSession(() => {
-      addToCart({ productId: 'shoe-01', size: '10', width: 'standard', quantity: 1 })
-      addToCart({ productId: 'shoe-02', size: '11', width: 'standard', quantity: 2 })
-      clearCart()
-      expect(totalCartCount()).toBe(0)
-      expect(getCartDetailed().items).toHaveLength(0)
-    }))
-
-  it('getCartDetailed enriches lines with name + line totals', () =>
-    withTestSession(() => {
-      addToCart({ productId: 'shoe-01', size: '10', width: 'standard', quantity: 2 })
-      const cart = getCartDetailed()
-      expect(cart.items).toHaveLength(1)
-      expect(cart.items[0]!.name).toBe('Air Max 90')
-      expect(cart.items[0]!.lineTotal).toBe(cart.items[0]!.unitPrice * 2)
-      expect(cart.subtotal).toBe(cart.items[0]!.lineTotal)
-      expect(cart.itemCount).toBe(2)
+      expect(getCart().itemCount).toBe(0)
+      const next = mutateCart({
+        action: 'add',
+        productId: 'shoe-01',
+        size: '10',
+        width: 'standard',
+        quantity: 2,
+      })
+      expect(next.itemCount).toBe(2)
+      expect(getCart().itemCount).toBe(2)
     }))
 })

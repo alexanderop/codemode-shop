@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { addToCart, getCartDetailed, type DetailedCart } from '#/lib/cart'
+import { mutateCart, type DetailedCart } from '#/lib/cart'
 import { PRODUCT_BY_ID, findStock, shippingEtaDays, type Width } from '#/lib/catalog'
 import { withSession } from '#/lib/session'
 import type { UIEvent } from '#/features/storefront/types/ui-types'
@@ -32,8 +32,13 @@ function resolveAddToCart(payload: HandlerRequest['payload'], zipCode: string): 
     }
   }
 
-  addToCart({ productId: payload.productId, size: payload.size, width, quantity })
-  const cart = getCartDetailed()
+  const cart = mutateCart({
+    action: 'add',
+    productId: payload.productId,
+    size: payload.size,
+    width,
+    quantity,
+  })
   const arrival = new Date()
   arrival.setDate(arrival.getDate() + shippingEtaDays(zipCode))
   const arrivesBy = arrival.toISOString().slice(0, 10)

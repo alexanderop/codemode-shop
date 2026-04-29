@@ -8,7 +8,7 @@ import { errorMessage } from '#/lib/utils'
 import { SiteHeader } from '#/components/site-header'
 import { useCart, useCartMutation } from '#/queries/cart'
 import { assistantUi } from '#/stores/assistant-ui'
-import { cartLineKey } from '#/lib/cart-key'
+import { cartLineKey } from '#/lib/cart-mutation'
 
 export const Route = createFileRoute('/cart')({ component: CartPage })
 

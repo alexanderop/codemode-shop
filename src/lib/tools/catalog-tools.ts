@@ -10,13 +10,7 @@ import {
   findStock,
   shippingEtaDays,
 } from '#/lib/catalog'
-import {
-  addToCart as addToCartState,
-  clearCart as clearCartState,
-  getCartDetailed,
-  removeFromCart as removeFromCartState,
-  setCartLineQuantity,
-} from '#/lib/cart'
+import { getCart, mutateCart } from '#/lib/cart'
 import { getOrder as getOrderState, placeOrder as placeOrderState } from '#/lib/orders'
 import { processFakePayment } from '#/lib/payment'
 import { sessionContext, type SessionId } from '#/lib/session-context'
@@ -252,6 +246,10 @@ const orderLineSchema = z.object({
   lineTotal: z.number(),
 })
 
+function cartSummary(cart: { itemCount: number; items: ReadonlyArray<unknown> }) {
+  return { itemCount: cart.itemCount, lineCount: cart.items.length }
+}
+
 const orderSchema = z.object({
   id: z.string(),
   lines: z.array(orderLineSchema),
@@ -293,19 +291,22 @@ export function createSessionScopedCatalogTools(sessionId: SessionId) {
     }),
   }).server((input) =>
     inSession(() =>
-      addToCartState({
-        productId: input.productId,
-        size: String(input.size),
-        width: input.width ?? 'standard',
-        quantity: optionalNumber(input.quantity) ?? 1,
-      }),
+      cartSummary(
+        mutateCart({
+          action: 'add',
+          productId: input.productId,
+          size: String(input.size),
+          width: input.width ?? 'standard',
+          quantity: optionalNumber(input.quantity) ?? 1,
+        }),
+      ),
     ),
   )
 
-  const getCart = toolDefinition({
+  const getCartTool = toolDefinition({
     name: 'getCart',
     description:
-      "Read the shopper's current cart. Returns one entry per product/size/width line, enriched with name, brand, and unit price, plus subtotal and total item count. Returns empty items if the cart is empty.",
+      "Read the shopper's current cart. Returns one entry per product/size/width line, enriched with name, brand, and unit price, plus subtotal, total item count, and the number of distinct lines. Returns empty items if the cart is empty.",
     inputSchema: z.object({}),
     outputSchema: z.object({
       items: z.array(
@@ -321,9 +322,15 @@ export function createSessionScopedCatalogTools(sessionId: SessionId) {
         }),
       ),
       itemCount: z.number(),
+      lineCount: z.number(),
       subtotal: z.number(),
     }),
-  }).server(() => inSession(() => getCartDetailed()))
+  }).server(() =>
+    inSession(() => {
+      const cart = getCart()
+      return { ...cart, lineCount: cart.items.length }
+    }),
+  )
 
   const removeFromCart = toolDefinition({
     name: 'removeFromCart',
@@ -339,7 +346,14 @@ export function createSessionScopedCatalogTools(sessionId: SessionId) {
     }),
   }).server(({ productId, size, width }) =>
     inSession(() =>
-      removeFromCartState({ productId, size: String(size), width: width ?? 'standard' }),
+      cartSummary(
+        mutateCart({
+          action: 'remove',
+          productId,
+          size: String(size),
+          width: width ?? 'standard',
+        }),
+      ),
     ),
   )
 
@@ -358,12 +372,15 @@ export function createSessionScopedCatalogTools(sessionId: SessionId) {
     }),
   }).server(({ productId, size, width, quantity }) =>
     inSession(() =>
-      setCartLineQuantity({
-        productId,
-        size: String(size),
-        width: width ?? 'standard',
-        quantity: optionalNumber(quantity) ?? 0,
-      }),
+      cartSummary(
+        mutateCart({
+          action: 'set',
+          productId,
+          size: String(size),
+          width: width ?? 'standard',
+          quantity: optionalNumber(quantity) ?? 0,
+        }),
+      ),
     ),
   )
 
@@ -375,7 +392,7 @@ export function createSessionScopedCatalogTools(sessionId: SessionId) {
       itemCount: z.number(),
       lineCount: z.number(),
     }),
-  }).server(() => inSession(() => clearCartState()))
+  }).server(() => inSession(() => cartSummary(mutateCart({ action: 'clear' }))))
 
   const placeOrder = toolDefinition({
     name: 'placeOrder',
@@ -391,7 +408,7 @@ export function createSessionScopedCatalogTools(sessionId: SessionId) {
     }),
     outputSchema: orderSchema,
   }).server(async ({ shippingAddress, payment }) => {
-    const cart = inSession(() => getCartDetailed())
+    const cart = inSession(() => getCart())
     if (cart.items.length === 0) {
       throw new Error('Cart is empty')
     }
@@ -410,5 +427,5 @@ export function createSessionScopedCatalogTools(sessionId: SessionId) {
     return order
   })
 
-  return [addToCart, getCart, removeFromCart, setCartQuantity, clearCart, placeOrder, getOrder]
+  return [addToCart, getCartTool, removeFromCart, setCartQuantity, clearCart, placeOrder, getOrder]
 }
